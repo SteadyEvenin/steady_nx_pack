@@ -159,6 +159,14 @@ process() {
         filename="${filename//%2B/+}"
     fi
 
+    # ── Allow caller to force a unique cache filename to avoid collisions ──────
+    # Pass PROCESS_FILENAME_OVERRIDE=name before calling process() to rename the
+    # downloaded file in _downloads/.  Cleared automatically after each call.
+    if [[ -n "${PROCESS_FILENAME_OVERRIDE:-}" ]]; then
+        filename="$PROCESS_FILENAME_OVERRIDE"
+        PROCESS_FILENAME_OVERRIDE=""
+    fi
+
     local dest="$DL_DIR/$filename"
     if ! download_file "$url" "$dest"; then
         FAILED+=("$label")
@@ -284,6 +292,9 @@ process "Horizon-OC" "Horizon-OC/Horizon-OC" "dist\.zip" "unzip_root"
 process "FPSLocker (masagrator)" "masagrator/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
 
 # 12. QuickNTP
+# NOTE: QuickNTP releases its payload as sdout.zip — same name as Ultrahand-Overlay.
+# We force a unique cache filename so the two zips never collide in _downloads/.
+PROCESS_FILENAME_OVERRIDE="quickntp_sdout.zip"
 process "QuickNTP" "nedex/QuickNTP" "sdout.zip" "unzip_root"
 
 # 13. sys-patch
@@ -305,6 +316,9 @@ process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 process "HOC-Toolkit" "ppkantorski/HOC-Toolkit" "hoc-toolkit.zip" "unzip_root"
 
 # 19. Ultrahand-Overlay
+# NOTE: sdout.zip is also the asset name used by QuickNTP.  We force a unique
+# cache filename here so the two never overwrite each other in _downloads/.
+PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
 
 {
@@ -316,7 +330,7 @@ process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_r
         ovl_url=$(echo "$assets" | grep "ovlmenu.ovl" | head -1 || true)
         if [[ -n "$ovl_url" ]]; then
             info "   Downloading standalone Ultrahand ovlmenu.ovl asset..."
-            download_file "$ovl_url" "ovlmenu.ovl"
+            download_file "$ovl_url" "$DL_DIR/ovlmenu.ovl"
             mkdir -p "$OUTPUT_DIR/switch/.overlays"
             cp "$DL_DIR/ovlmenu.ovl" "$OUTPUT_DIR/switch/.overlays/ovlmenu.ovl"
             info "   ovlmenu.ovl mapped cleanly → switch/.overlays/ovlmenu.ovl"
