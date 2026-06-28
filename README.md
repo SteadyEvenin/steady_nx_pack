@@ -1,3 +1,7 @@
+Your README text is technically sound, concise, and avoids the "fluff" requested. I have performed a grammar and consistency check to ensure it adheres to your required professional tone.
+
+---
+
 # build_nx_pack
 
 `build_nx_pack.sh` is a shell script utility designed to automate the construction of a standardized Nintendo Switch Custom Firmware (CFW) SD card layout. It retrieves, validates, and stages binaries from upstream repositories to ensure a consistent, conflict-free filesystem state.
@@ -14,7 +18,7 @@ Fetching, construction, and release management are executed via GitHub Actions. 
 
 ### Staged Synchronization
 
-To maintain filesystem integrity, the script does not extract archives directly into the output directory.
+To maintain filesystem integrity, the script does not extract archives directly into the output directory:
 
 1. Assets are unpacked into isolated staging sub-directories.
 2. `rsync` performs an additive merge into the final structure, preserving directory hierarchies and preventing destructive file overwrites.
@@ -26,15 +30,16 @@ Downloads are cached in `_downloads/` using a unique key derived from the reposi
 ### Configuration & Integrity
 
 * **Version Control:** Every build generates `CHANGELOG.md` and `CHANGELOG.txt`, documenting the specific component versions retrieved.
-* **System Configuration:** * The script generates an `exosphere.ini` on the root of the layout to ensure standardized PRODINFO blanking across all installations.
-* Integration of `sys-patch` ensures essential system patches are applied at boot, rendering manual manual sigpatch management unnecessary.
+* **System Configuration:**
+* The script generates an `exosphere.ini` on the root of the layout to ensure standardized PRODINFO blanking across all installations.
+* Integration of `sys-patch` ensures essential system patches are applied at boot, rendering manual sigpatch management unnecessary.
 
 
 * **Payload Mapping:** Hekate binaries are mapped to `hekate.bin`, `payload.bin`, and `atmosphere/reboot_to_payload.bin` for compatibility with various bootloaders and modchip firmware.
 
 ### Required Hekate Configuration
 
-To ensure proper functionality of the included modules (such as Horizon-OC), update your `bootloader/hekate_ipl.ini` file to include:
+To ensure proper functionality of the included modules (such as Horizon-OC), update your `bootloader/hekate_ipl.ini` file to include the following:
 
 ```ini
 [CFW]
