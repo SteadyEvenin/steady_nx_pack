@@ -63,11 +63,11 @@ The following components are integrated into the SD layout:
 | **FPSLocker** | [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) |
 | **QuickNTP** | [nedex/QuickNTP](https://github.com/nedex/QuickNTP) |
 | **sys-patch** | [borntohonk/sys-patch](https://github.com/borntohonk/sys-patch) |
-| **ovl-sysmodules** | [ppkantorski/ovl-sysmodules](https://www.google.com/search?q=https://github.com/ppkantorski/ovl-sysmodules) |
-| **FPSLocker (fork)** | [ppkantorski/FPSLocker](https://www.google.com/search?q=https://github.com/ppkantorski/FPSLocker) |
-| **Memory-Kit** | [ppkantorski/Memory-Kit](https://www.google.com/search?q=https://github.com/ppkantorski/Memory-Kit) |
+| **ovl-sysmodules** | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) |
+| **FPSLocker (fork)** | [ppkantorski/FPSLocker](https://github.com/ppkantorski/FPSLocker) |
+| **Memory-Kit** | [ppkantorski/Memory-Kit](https://github.com/ppkantorski/Memory-Kit) |
 | **Alchemist** | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) |
-| **HOC-Toolkit** | [ppkantorski/HOC-Toolkit](https://www.google.com/search?q=https://github.com/ppkantorski/HOC-Toolkit) |
+| **HOC-Toolkit** | [ppkantorski/HOC-Toolkit](https://github.com/ppkantorski/HOC-Toolkit) |
 | **Ultrahand-Overlay** | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) |
 | **emuiibo** | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) |
-| **Status-Monitor-Overlay** | [ppkantorski/Status-Monitor-Overlay](https://www.google.com/search?q=https://github.com/ppkantorski/Status-Monitor-Overlay) |
+| **Status-Monitor-Overlay** | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) |
