@@ -1,7 +1,3 @@
-Your README text is technically sound, concise, and avoids the "fluff" requested. I have performed a grammar and consistency check to ensure it adheres to your required professional tone.
-
----
-
 # build_nx_pack
 
 `build_nx_pack.sh` is a shell script utility designed to automate the construction of a standardized Nintendo Switch Custom Firmware (CFW) SD card layout. It retrieves, validates, and stages binaries from upstream repositories to ensure a consistent, conflict-free filesystem state.
