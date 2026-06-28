@@ -6,68 +6,63 @@
 
 ### Upstream Sourcing
 
-Binaries are fetched directly from official release repositories via the GitHub API. This approach ensures bit-for-bit parity with upstream assets.
+Binaries are fetched directly from official GitHub release repositories via the GitHub API. This ensures bit-for-bit parity with upstream release assets while avoiding intermediary mirrors or repackaged distributions.
 
 ### GitHub Actions Integration
 
-Fetching, construction, and release management are executed via GitHub Actions. The primary workflow is defined in `.github/workflows/release.yml`, ensuring that every build occurs in a clean, isolated environment and follows a traceable lifecycle.
+Package construction, validation, and release publication are fully automated using GitHub Actions. The primary workflow, defined in `.github/workflows/release.yml`, executes every build in a clean, isolated environment, ensuring reproducibility and a traceable release lifecycle.
 
 ### Staged Synchronization
 
-To maintain filesystem integrity, the script does not extract archives directly into the output directory:
+To preserve filesystem integrity, archives are never extracted directly into the final output directory.
 
-1. Assets are unpacked into isolated staging sub-directories.
-2. `rsync` performs an additive merge into the final structure, preserving directory hierarchies and preventing destructive file overwrites.
+1. Assets are extracted into isolated staging directories.
+2. `rsync` performs an additive merge into the final filesystem, preserving directory hierarchies while preventing unintended file overwrites.
 
 ### Caching and Determinism
 
-Downloads are cached in `_downloads/` using a unique key derived from the repository owner, project name, and release tag. This mechanism mitigates filename collisions inherent in projects that reuse generic assets (e.g., `sdout.zip`, `dist.zip`).
+Downloaded assets are cached in `_downloads/` using a cache key derived from the repository owner, project name, and release tag. This prevents filename collisions between projects that reuse generic archive names such as `sdout.zip` or `dist.zip`, while ensuring deterministic rebuilds.
 
 ### Configuration & Integrity
 
-* **Version Control:** Every build generates `CHANGELOG.md` and `CHANGELOG.txt`, documenting the specific component versions retrieved.
-* **System Configuration:**
-* The script generates an `exosphere.ini` on the root of the layout to ensure standardized PRODINFO blanking across all installations.
-* Integration of `sys-patch` ensures essential system patches are applied at boot, rendering manual sigpatch management unnecessary.
+* **Version Tracking:** Every build generates `CHANGELOG.md` and `CHANGELOG.txt`, documenting the exact upstream component versions included in the package.
+* **System Configuration:** An `exosphere.ini` file is generated at the root of the SD layout to provide a standardized Exosphere configuration with PRODINFO blanking enabled.
+* **System Patching:** `sys-patch` is included to apply required system patches automatically during boot, eliminating the need for manual sigpatch management.
+* **Payload Mapping:** Hekate payloads are installed as `hekate.bin`, `payload.bin`, and `atmosphere/reboot_to_payload.bin` to maximize compatibility with bootloaders, payload launchers, and modchip firmware.
 
+## Included Hekate Configuration
 
-* **Payload Mapping:** Hekate binaries are mapped to `hekate.bin`, `payload.bin`, and `atmosphere/reboot_to_payload.bin` for compatibility with various bootloaders and modchip firmware.
-
-### Required Hekate Configuration
-
-To ensure proper functionality of the included modules (such as Horizon-OC), update your `bootloader/hekate_ipl.ini` file to include the following:
+To support Horizon-OC, the generated package includes a modified `bootloader/hekate_ipl.ini` containing the following configuration:
 
 ```ini
 [CFW]
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
-
 ```
 
 ## Components and Attribution
 
-The following components are integrated into the SD layout:
+The following upstream projects are integrated into the SD card layout:
 
-| Component | Repository |
-| --- | --- |
-| **Atmosphère** | [atmosphere-nx/atmosphere](https://github.com/atmosphere-nx/atmosphere) |
-| **Hekate** | [ctcaer/hekate](https://github.com/ctcaer/hekate) |
-| **DBI** | [rashevskyv/dbi](https://github.com/rashevskyv/dbi) |
-| **disable_remap_dialog** | [ndeadly/disable_remap_dialog](https://github.com/ndeadly/disable_remap_dialog) |
-| **MissionControl** | [ndeadly/MissionControl](https://github.com/ndeadly/MissionControl) |
-| **SaltyNX** | [masagrator/SaltyNX](https://github.com/masagrator/SaltyNX) |
-| **theme-patches** | [exelix11/theme-patches](https://github.com/exelix11/theme-patches) |
-| **nx-ovlloader** | [ppkantorski/nx-ovlloader](https://github.com/ppkantorski/nx-ovlloader) |
-| **EdiZon-Overlay** | [proferabg/EdiZon-Overlay](https://github.com/proferabg/EdiZon-Overlay) |
-| **Horizon-OC** | [Horizon-OC/Horizon-OC](https://github.com/Horizon-OC/Horizon-OC) |
-| **FPSLocker** | [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) |
-| **QuickNTP** | [nedex/QuickNTP](https://github.com/nedex/QuickNTP) |
-| **sys-patch** | [borntohonk/sys-patch](https://github.com/borntohonk/sys-patch) |
-| **ovl-sysmodules** | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) |
-| **FPSLocker (fork)** | [ppkantorski/FPSLocker](https://github.com/ppkantorski/FPSLocker) |
-| **Memory-Kit** | [ppkantorski/Memory-Kit](https://github.com/ppkantorski/Memory-Kit) |
-| **Alchemist** | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) |
-| **HOC-Toolkit** | [ppkantorski/HOC-Toolkit](https://github.com/ppkantorski/HOC-Toolkit) |
-| **Ultrahand-Overlay** | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) |
-| **emuiibo** | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) |
-| **Status-Monitor-Overlay** | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) |
+| Component                  | Repository                                            |
+| -------------------------- | ----------------------------------------------------- |
+| **Atmosphère**             | https://github.com/atmosphere-nx/atmosphere           |
+| **Hekate**                 | https://github.com/ctcaer/hekate                      |
+| **DBI**                    | https://github.com/rashevskyv/dbi                     |
+| **disable_remap_dialog**   | https://github.com/ndeadly/disable_remap_dialog       |
+| **MissionControl**         | https://github.com/ndeadly/MissionControl             |
+| **SaltyNX**                | https://github.com/masagrator/SaltyNX                 |
+| **theme-patches**          | https://github.com/exelix11/theme-patches             |
+| **nx-ovlloader**           | https://github.com/ppkantorski/nx-ovlloader           |
+| **EdiZon-Overlay**         | https://github.com/proferabg/EdiZon-Overlay           |
+| **Horizon-OC**             | https://github.com/Horizon-OC/Horizon-OC              |
+| **QuickNTP**               | https://github.com/nedex/QuickNTP                     |
+| **sys-patch**              | https://github.com/borntohonk/sys-patch               |
+| **ovl-sysmodules**         | https://github.com/ppkantorski/ovl-sysmodules         |
+| **FPSLocker (fork)**       | https://github.com/ppkantorski/FPSLocker              |
+| **Memory-Kit**             | https://github.com/ppkantorski/Memory-Kit             |
+| **Alchemist**              | https://github.com/ppkantorski/Alchemist              |
+| **HOC-Toolkit**            | https://github.com/ppkantorski/HOC-Toolkit            |
+| **Ultrahand-Overlay**      | https://github.com/ppkantorski/Ultrahand-Overlay      |
+| **emuiibo**                | https://github.com/XorTroll/emuiibo                   |
+| **Status-Monitor-Overlay** | https://github.com/ppkantorski/Status-Monitor-Overlay |
