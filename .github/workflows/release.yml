@@ -47,13 +47,24 @@ jobs:
           shopt -s dotglob
           zip -r ../SD_Card_Package.zip *
 
-      - name: Determine Release Name
+      # ── NEW: Unique versioning scheme for manual builds & automatic Changelog tag update ──
+      - name: Determine Release Name and Update Changelog
         id: release_vars
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            VERSION_TAG="${{ github.ref_name }}"
           else
-            echo "version=manual-build-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+            # Scheme: v[Year].[Month].[Day]-build.[RunNumber]-[ShortSHA]
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            VERSION_TAG="v$(date +'%Y.%m.%d')-build.${{ github.run_number }}-${SHORT_SHA}"
+          fi
+          
+          echo "version=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          
+          # Dynamically injection of the precise version into the top of CHANGELOG.md
+          CHANGELOG_PATH="${{ github.workspace }}/SD_Card_Output/CHANGELOG.md"
+          if [[ -f "$CHANGELOG_PATH" ]]; then
+            sed -i "s|# CFW Pack Changelog|# CFW Pack Changelog (${VERSION_TAG})|g" "$CHANGELOG_PATH"
           fi
 
       - name: Create GitHub Release
@@ -64,7 +75,6 @@ jobs:
           body_path: ${{ github.workspace }}/SD_Card_Output/CHANGELOG.md
           draft: false
           prerelease: false
-          # ── FIX: Force tag generation on the current commit to allow manual workflow runs ──
-          target_commitish:  ${{ github.sha }}
+          target_commitish: ${{ github.sha }}
           files: |
             SD_Card_Package.zip
