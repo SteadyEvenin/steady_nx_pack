@@ -1,80 +1,197 @@
+# =============================================================================
+#  .github/workflows/release.yml
+#  Builds a Nintendo Switch CFW SD-card pack and publishes it as a GitHub
+#  Release with a changelog body and a downloadable zip artifact.
+#
+#  Triggers
+#  ────────
+#  • Push of any tag matching v*   (e.g. v1.2.3)
+#  • Manual "Run workflow" dispatch (generates its own dated version tag)
+#    └─ optional input: version_tag  – override the auto-generated tag name
+# =============================================================================
+
 name: Build and Release CFW Pack
 
 on:
   push:
     tags:
-      - 'v*'  # Triggers when you push a version tag like v1.0.0
-  workflow_dispatch:  # Allows you to click "Run workflow" manually on GitHub
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: >
+          Optional version tag override.
+          Leave blank to auto-generate: v[YYYY.MM.DD]-build.[run]-[sha7]
+        required: false
+        default: ''
+
+# One release at a time.  A new run cancels any in-progress run on the same
+# ref so rapid pushes never produce a half-finished release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: write      # Restricted strictly to managing releases/tags
-  actions: none
-  checks: none
-  deployments: none
-  issues: none
-  packages: none
-  pull-requests: none
-  repository-projects: none
-  security-events: none
-  statuses: none
+  contents: write       # create releases and upload assets
+  actions:              none
+  checks:               none
+  deployments:          none
+  issues:               none
+  packages:             none
+  pull-requests:        none
+  repository-projects:  none
+  security-events:      none
+  statuses:             none
 
+# ---------------------------------------------------------------------------
+#  JOB 1 – build
+#  Runs build_nx_pack.sh, zips the output, uploads it as an Actions artifact
+#  and writes the version tag + changelog path to job outputs.
+# ---------------------------------------------------------------------------
 jobs:
   build:
+    name: Build SD Card Pack
     runs-on: ubuntu-latest
 
+    outputs:
+      version: ${{ steps.version.outputs.tag }}
+      changelog: ${{ steps.version.outputs.changelog }}
+
     steps:
+      # ── 1. Source ──────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure dependencies are installed
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl unzip python3 zip
+      # ── 2. Dependencies ────────────────────────────────────────────────────
+      # curl / unzip / python3 ship on ubuntu-latest; only zip needs adding.
+      - name: Install zip
+        run: sudo apt-get install -y -qq zip
 
-      - name: Make script executable
-        run: chmod +x build_nx_pack.sh
-
+      # ── 3. Build ───────────────────────────────────────────────────────────
       - name: Run build script
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OUTPUT_DIR: ${{ github.workspace }}/SD_Card_Output
-        run: ./build_nx_pack.sh "$OUTPUT_DIR"
-
-      # ── FIXED: Added dotglob and switched ./* to * to safely zip hidden root items ──
-      - name: Compress SD Card Output
+          OUTPUT_DIR:   ${{ github.workspace }}/SD_Card_Output
         run: |
-          cd ${{ github.workspace }}/SD_Card_Output
-          shopt -s dotglob
-          zip -r ../SD_Card_Package.zip *
+          chmod +x build_nx_pack.sh
+          ./build_nx_pack.sh "$OUTPUT_DIR"
 
-      # ── NEW: Unique versioning scheme for manual builds & automatic Changelog tag update ──
-      - name: Determine Release Name and Update Changelog
-        id: release_vars
+      # ── 4. Sanity check ────────────────────────────────────────────────────
+      - name: Verify output directory is non-empty
+        run: |
+          count=$(find "${{ github.workspace }}/SD_Card_Output" \
+                       -mindepth 1 -maxdepth 1 | wc -l)
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::SD_Card_Output is empty – build script may have failed."
+            exit 1
+          fi
+          echo "Output contains $count top-level entries."
+
+      # ── 5. Version tag ─────────────────────────────────────────────────────
+      - name: Determine version tag
+        id: version
+        env:
+          INPUT_TAG: ${{ github.event.inputs.version_tag }}
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            VERSION_TAG="${{ github.ref_name }}"
+            TAG="${{ github.ref_name }}"
+          elif [[ -n "$INPUT_TAG" ]]; then
+            TAG="$INPUT_TAG"
           else
-            # Scheme: v[Year].[Month].[Day]-build.[RunNumber]-[ShortSHA]
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-            VERSION_TAG="v$(date +'%Y.%m.%d')-build.${{ github.run_number }}-${SHORT_SHA}"
+            TAG="v$(date -u +'%Y.%m.%d')-build.${{ github.run_number }}-${SHORT_SHA}"
           fi
-          
-          echo "version=${VERSION_TAG}" >> $GITHUB_OUTPUT
-          
-          # Dynamically injection of the precise version into the top of CHANGELOG.md
-          CHANGELOG_PATH="${{ github.workspace }}/SD_Card_Output/CHANGELOG.md"
-          if [[ -f "$CHANGELOG_PATH" ]]; then
-            sed -i "s|# CFW Pack Changelog|# CFW Pack Changelog (${VERSION_TAG})|g" "$CHANGELOG_PATH"
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          # Stamp version into changelog heading
+          CHANGELOG="${{ github.workspace }}/SD_Card_Output/CHANGELOG.md"
+          if [[ -f "$CHANGELOG" ]]; then
+            sed -i "s|^# CFW Pack Changelog$|# CFW Pack Changelog (${TAG})|" "$CHANGELOG"
+            echo "changelog=${CHANGELOG}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::CHANGELOG.md not found at expected path."
+            echo "changelog=" >> "$GITHUB_OUTPUT"
           fi
+
+          echo "Version: ${TAG}"
+
+      # ── 6. Package ─────────────────────────────────────────────────────────
+      # shopt dotglob is required so that `*` expands to include hidden items
+      # such as switch/.overlays — the zip command itself does not do this.
+      - name: Compress SD Card Output
+        run: |
+          cd "${{ github.workspace }}/SD_Card_Output"
+          shopt -s dotglob
+          zip -r "${{ github.workspace }}/SD_Card_Package.zip" *
+          echo "Zip size: $(du -sh "${{ github.workspace }}/SD_Card_Package.zip" | cut -f1)"
+
+      # ── 7. Upload artifact (retention: 7 days) ─────────────────────────────
+      # Preserves the zip even if the release step below fails, and lets you
+      # download the build output directly from the Actions run summary.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SD_Card_Package-${{ steps.version.outputs.tag }}
+          path: ${{ github.workspace }}/SD_Card_Package.zip
+          retention-days: 7
+          if-no-files-found: error
+
+      # ── 8. Job summary ─────────────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          ZIP="${{ github.workspace }}/SD_Card_Package.zip"
+
+          {
+            echo "## CFW Pack Build — \`${TAG}\`"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+            if [[ -f "$ZIP" ]]; then
+              echo "| Package size | $(du -sh "$ZIP" | cut -f1) |"
+            fi
+            echo ""
+            if [[ -f "${{ steps.version.outputs.changelog }}" ]]; then
+              echo "<details><summary>Changelog</summary>"
+              echo ""
+              cat "${{ steps.version.outputs.changelog }}"
+              echo ""
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+# ---------------------------------------------------------------------------
+#  JOB 2 – release
+#  Runs only after build succeeds.  Downloads the artifact produced above
+#  and publishes a GitHub Release.  Keeping this as a separate job means a
+#  failed release can be re-run without re-running the full build.
+# ---------------------------------------------------------------------------
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SD_Card_Package-${{ needs.build.outputs.version }}
+          path: ${{ github.workspace }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release_vars.outputs.version }}
-          name: CFW Custom Pack ${{ steps.release_vars.outputs.version }}
-          body_path: ${{ github.workspace }}/SD_Card_Output/CHANGELOG.md
-          draft: false
-          prerelease: false
+          tag_name:        ${{ needs.build.outputs.version }}
+          name:            CFW Custom Pack ${{ needs.build.outputs.version }}
+          body_path:       ${{ needs.build.outputs.changelog }}
+          draft:           false
+          prerelease:      false
           target_commitish: ${{ github.sha }}
+          make_latest:     true
           files: |
             SD_Card_Package.zip
