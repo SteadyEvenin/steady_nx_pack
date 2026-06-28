@@ -1,48 +1,29 @@
-# build_nx_pack
+`build_nx_pack.sh` is a utility for generating a standardized Nintendo Switch Custom Firmware (CFW) SD card layout. It automates the retrieval, validation, and staging of binaries from upstream repositories to produce a clean, conflict-free boot-ready CFW pack.
 
-`build_nx_pack.sh` is a shell script utility designed to automate the construction of a standardized Nintendo Switch Custom Firmware (CFW) SD card layout. It retrieves, validates, and stages binaries from upstream repositories to ensure a consistent, conflict-free filesystem state.
+## Purpose
 
-## Technical Design
+The goal of this project is to provide a "copy-paste" ready SD card layout that maintains strict integrity with upstream sources. By automating the build process, the script ensures that the filesystem remains consistent, and provides a verifiable audit trail of component versions.
 
-### Repository-Aware Caching
-Downloads are stored in `_downloads/` using a unique key derived from the repository owner, project name, and release tag. This prevents filename collisions inherent in projects that reuse generic assets (e.g., `sdout.zip`).
+## Technical Architecture
 
-### Staged Synchronization
-Assets are not extracted directly into the output directory. They are unpacked into isolated staging sub-directories; `rsync` is then used to perform an additive merge into the final structure. This preserves existing directories and prevents destructive file overwrites.
+### Upstream Sourcing
+The script fetches binaries directly from official repositories. This ensures that the final SD card contains original code rather than modified or potentially compromised "re-packs."
 
-### Version Control & Verification
-Each build generates `CHANGELOG.md` and `CHANGELOG.txt`, cataloging the exact component versions retrieved from the GitHub API.
+### Github Workflow-built
+Fetching, construction, and release management are handled via GitHub Actions. The primary workflow is located at .github/workflows/release.yml, ensuring that every release is built in a clean, isolated environment and follows a traceable lifecycle.
 
-### Dot-File Integrity
-The script utilizes `shopt -s dotglob` to ensure hidden directories (e.g., `switch/.overlays`) are processed correctly.
+### Staged Merging
+To prevent filesystem corruption or destructive overwrites, assets are not extracted directly into the output directory. 
+1. Assets are unpacked into isolated, temporary staging directories.
+2. `rsync` is used to perform an additive merge into the final layout.
+3. This preserves existing directory structures and ensures that only intended files are updated.
 
-## Prerequisites
+### Caching & Determinism
+Downloads are indexed using a unique key (Owner + Project + Tag). This prevents collisions between projects using identical filenames. A `CHANGELOG` is generated for every build to record the specific versions of all components retrieved via the GitHub API.
 
-- **Environment**: POSIX-compliant shell.
-- **Dependencies**: `curl`, `unzip`, `python3`, `rsync`.
+## Components/Credits
 
-## Usage
-
-1. Set execution permissions:
-   ```bash
-   chmod +x build_nx_pack.sh
-   ```
-2. Run the script:
-   ```bash
-   ./build_nx_pack.sh [OUTPUT_DIR]
-   ```
-
-## Configuration
-
-| Variable | Description |
-| :--- | :--- |
-| `GITHUB_TOKEN` | Optional. Provides authentication to bypass GitHub API rate limits (60 to 5000 req/hr). |
-| `OUTPUT_DIR` | Optional. Overrides the default `./SD_Card_Output` destination. |
-| `KEEP_DOWNLOADS` | Optional. Set to `1` to persist the `_downloads/` cache across multiple runs. |
-
-## Component Credits
-
-The following repositories are utilized to construct the SD pack:
+The following repositories are used to construct the SD layout:
 
 | Component | Author / Repository |
 | :--- | :--- |
