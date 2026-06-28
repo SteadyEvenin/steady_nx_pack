@@ -40,10 +40,12 @@ jobs:
           OUTPUT_DIR: ${{ github.workspace }}/SD_Card_Output
         run: ./build_nx_pack.sh "$OUTPUT_DIR"
 
+      # ── FIXED: Added dotglob and switched ./* to * to safely zip hidden root items ──
       - name: Compress SD Card Output
         run: |
           cd ${{ github.workspace }}/SD_Card_Output
-          zip -r ../SD_Card_Package.zip ./*
+          shopt -s dotglob
+          zip -r ../SD_Card_Package.zip *
 
       - name: Determine Release Name
         id: release_vars
