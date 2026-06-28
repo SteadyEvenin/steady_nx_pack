@@ -241,10 +241,12 @@ process "Hekate" "ctcaer/hekate" "hekate_ctcaer.*_Nyx_" "unzip_root"
         if [[ -n "$bin_url" ]]; then
             bin_file="$DL_DIR/$(basename "$bin_url")"
             download_file "$bin_url" "$bin_file"
-            mkdir -p "$OUTPUT_DIR/bootloader/payloads"
+            mkdir -p "$OUTPUT_DIR/bootloader/payloads" "$OUTPUT_DIR/atmosphere"
             cp "$bin_file" "$OUTPUT_DIR/hekate.bin"
+            cp "$bin_file" "$OUTPUT_DIR/payload.bin"
+            cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
             cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
-            info "   Hekate payload → hekate.bin + bootloader/payloads/hekate.bin"
+            info "   Hekate payload → mapped to root (hekate.bin, payload.bin), atmosphere, and payloads folder."
         fi
     fi
 } 2>>"$LOG_FILE" || warn "Could not place Hekate .bin payload"
@@ -277,7 +279,7 @@ process "MissionControl" "ndeadly/MissionControl" "MissionControl-" "unzip_root"
 process "SaltyNX" "masagrator/SaltyNX" "SaltyNX\.zip" "unzip_root"
 
 # 7. theme-patches
-process "theme-patches" "exelix11/theme-patches" "SOURCE:master" "zip_subfolder" "theme-patches-master/systemPatches" "atmosphere/exefs_patches/theme-patches"
+process "theme-patches" "exelix11/theme-patches" "SOURCE:master" "zip_subfolder" "theme-patches-master/systemPatches" "themes/systemPatches"
 
 # 8. nx-ovlloader
 process "nx-ovlloader" "ppkantorski/nx-ovlloader" "nx-ovlloader.zip" "unzip_root"
@@ -355,6 +357,28 @@ process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
 
 # =============================================================================
+#  GENERATE CONFIGURATION FILES
+# =============================================================================
+section "Generating system configurations"
+
+info "Writing exosphere.ini template to root..."
+cat << 'EOF' > "$OUTPUT_DIR/exosphere.ini"
+[exosphere]
+debugmode=1
+debugmode_user=0
+disable_user_exception_handlers=0
+enable_user_pmu_access=0
+enable_mem_mode=0
+blank_prodinfo_sysmmc=1
+blank_prodinfo_emummc=1
+allow_writing_to_cal_sysmmc=0
+log_port=0
+log_baud_rate=115200
+log_inverted=0
+EOF
+ok "exosphere.ini written with PRODINFO blanking active."
+
+# =============================================================================
 #  POST-BUILD: ensure essential directories exist
 # =============================================================================
 section "Finalising directory structure"
@@ -373,13 +397,13 @@ done
 declare -a ENSURE_DIRS=(
     "atmosphere/contents"
     "atmosphere/exefs_patches"
-    "atmosphere/exefs_patches/theme-patches"
     "atmosphere/kips"
     "bootloader/payloads"
     "config"
     "switch"
     "switch/.overlays"
     "switch/.packages"
+    "themes/systemPatches"
 )
 for d in "${ENSURE_DIRS[@]}"; do
     mkdir -p "$OUTPUT_DIR/$d"
