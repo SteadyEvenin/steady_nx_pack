@@ -64,5 +64,7 @@ jobs:
           body_path: ${{ github.workspace }}/SD_Card_Output/CHANGELOG.md
           draft: false
           prerelease: false
+          # ── FIX: Force tag generation on the current commit to allow manual workflow runs ──
+          target_commitish:  ${{ github.sha }}
           files: |
             SD_Card_Package.zip
