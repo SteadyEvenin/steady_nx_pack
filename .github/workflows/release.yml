@@ -266,7 +266,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name:         ${{ needs.build.outputs.version }}
-          name:             CFW Custom Pack ${{ needs.build.outputs.version }}
+          name:             steady_nx_pack ${{ needs.build.outputs.version }}
           body_path:        ${{ github.workspace }}/dl/body/release_body.md
           draft:            false
           prerelease:       false
