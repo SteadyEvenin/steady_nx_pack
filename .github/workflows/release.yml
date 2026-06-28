@@ -1,0 +1,66 @@
+name: Build and Release CFW Pack
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers when you push a version tag like v1.0.0
+  workflow_dispatch:  # Allows you to click "Run workflow" manually on GitHub
+
+permissions:
+  contents: write      # Restricted strictly to managing releases/tags
+  actions: none
+  checks: none
+  deployments: none
+  issues: none
+  packages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure dependencies are installed
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip python3 zip
+
+      - name: Make script executable
+        run: chmod +x build_nx_pack.sh
+
+      - name: Run build script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUTPUT_DIR: ${{ github.workspace }}/SD_Card_Output
+        run: ./build_nx_pack.sh "$OUTPUT_DIR"
+
+      - name: Compress SD Card Output
+        run: |
+          cd ${{ github.workspace }}/SD_Card_Output
+          zip -r ../SD_Card_Package.zip ./*
+
+      - name: Determine Release Name
+        id: release_vars
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=manual-build-$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_vars.outputs.version }}
+          name: CFW Custom Pack ${{ steps.release_vars.outputs.version }}
+          body_path: ${{ github.workspace }}/SD_Card_Output/CHANGELOG.md
+          draft: false
+          prerelease: false
+          files: |
+            SD_Card_Package.zip
