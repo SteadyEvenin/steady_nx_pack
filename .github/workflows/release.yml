@@ -28,8 +28,7 @@ on:
         default: ''
 
 # ── Global defaults ─────────────────────────────────────────────────────────
-# Explicit shell prevents silent breakage if the runner image ever changes its
-# default shell away from bash (unlikely but a real supply-chain hygiene item).
+# Explicit shell ensures consistent behaviour across all run steps.
 defaults:
   run:
     shell: bash
@@ -74,8 +73,7 @@ jobs:
     steps:
       # ── 1. Source ──────────────────────────────────────────────────────────
       - name: Checkout repository
-        # v4.2.2 — pinned to commit SHA for supply-chain safety
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v4
 
       # ── 2. Dependencies ────────────────────────────────────────────────────
       # curl / unzip / python3 are pre-installed on ubuntu-latest.
@@ -180,8 +178,7 @@ jobs:
       # Named with the version tag so the release job can reference it
       # unambiguously even if multiple runs are queued.
       - name: Upload zip artifact
-        # v4.6.0 — pinned to commit SHA
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1029001647a3c5ed
+        uses: actions/upload-artifact@v4
         with:
           name: SD_Card_Package-${{ steps.version.outputs.tag }}
           path: ${{ github.workspace }}/SD_Card_Package.zip
@@ -194,8 +191,7 @@ jobs:
       # point to a non-existent path on the release runner.  Upload it as an
       # artifact and download it in the release job instead.
       - name: Upload release body artifact
-        # v4.6.0 — pinned to commit SHA
-        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1029001647a3c5ed
+        uses: actions/upload-artifact@v4
         with:
           name: release-body-${{ steps.version.outputs.tag }}
           path: ${{ github.workspace }}/release_body.md
@@ -255,22 +251,19 @@ jobs:
       # its own subdirectory: ./SD_Card_Package-<tag>/SD_Card_Package.zip
       # and ./release-body-<tag>/release_body.md
       - name: Download zip artifact
-        # v4.1.8 — pinned to commit SHA
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build.outputs.artifact_zip }}
           path: ${{ github.workspace }}/dl/zip
 
       - name: Download release body artifact
-        # v4.1.8 — pinned to commit SHA
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@v4
         with:
           name: ${{ needs.build.outputs.artifact_body }}
           path: ${{ github.workspace }}/dl/body
 
       - name: Create GitHub Release
-        # v2.2.0 — pinned to commit SHA
-        uses: softprops/action-gh-release@c062e08bd532815e2082a7e09ce9571a589b3567
+        uses: softprops/action-gh-release@v2
         with:
           tag_name:         ${{ needs.build.outputs.version }}
           name:             CFW Custom Pack ${{ needs.build.outputs.version }}
