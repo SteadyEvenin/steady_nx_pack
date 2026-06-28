@@ -7,7 +7,7 @@ The goal of this project is to provide a "copy-paste" ready SD card layout that 
 ## Technical Architecture
 
 ### Upstream Sourcing
-The script fetches binaries directly from official repositories. This ensures that the final SD card contains original code rather than modified or potentially compromised "re-packs."
+The script fetches binaries directly from official repositories. This ensures that the final SD card contains original code rather than modified or forked alternatives not disclosed."
 
 ### Github Workflow-built
 Fetching, construction, and release management are handled via GitHub Actions. The primary workflow is located at .github/workflows/release.yml, ensuring that every release is built in a clean, isolated environment and follows a traceable lifecycle.
