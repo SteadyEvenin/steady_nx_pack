@@ -7,10 +7,18 @@
 #   • Atmosphère         • Hekate              • DBI
 #   • disable_remap_dlg  • MissionControl       • SaltyNX
 #   • theme-patches      • nx-ovlloader         • EdiZon-Overlay
-#   • Horizon-OC         • FPSLocker (masag.)   • QuickNTP
-#   • sys-patch          • ovl-sysmodules       • FPSLocker (ppkant.)
-#   • Memory-Kit         • Alchemist            • HOC-Toolkit
-#   • Ultrahand-Overlay  • emuiibo              • Status-Monitor-Overlay
+#   • Horizon-OC         • QuickNTP             • sys-patch
+#   • ovl-sysmodules     • FPSLocker (ppkant.)  • Memory-Kit
+#   • Alchemist          • HOC-Toolkit          • Ultrahand-Overlay
+#   • Ultrahand ovlmenu.ovl • Ultrahand lang.zip • emuiibo
+#   • Status-Monitor-Overlay
+#
+#  Generated config files:
+#   • exosphere.ini              (atmosphere PRODINFO blanking)
+#   • bootloader/hekate_ipl.ini  (Hekate boot menu — CFW EMUMMC entry)
+#
+#  Repo assets copied:
+#   • bootloader/res/emummc.bmp  (from assets/emummc.bmp in this repo)
 #
 #  Requirements (all standard on Ubuntu/Debian):
 #    curl  unzip  python3
@@ -290,70 +298,93 @@ process "EdiZon-Overlay" "proferabg/EdiZon-Overlay" "ovlEdiZon.ovl" "copy_to" "s
 # 10. Horizon-OC
 process "Horizon-OC" "Horizon-OC/Horizon-OC" "dist\.zip" "unzip_root"
 
-# 11. FPSLocker (masagrator)
-process "FPSLocker (masagrator)" "masagrator/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
-
-# 12. QuickNTP
+# 11. QuickNTP
 # NOTE: QuickNTP releases its payload as sdout.zip — same name as Ultrahand-Overlay.
 # We force a unique cache filename so the two zips never collide in _downloads/.
 PROCESS_FILENAME_OVERRIDE="quickntp_sdout.zip"
 process "QuickNTP" "nedex/QuickNTP" "sdout.zip" "unzip_root"
 
-# 13. sys-patch
+# 12. sys-patch
 process "sys-patch" "borntohonk/sys-patch" "sys-patch-" "unzip_root"
 
-# 14. ovl-sysmodules (ppkantorski)
+# 13. ovl-sysmodules (ppkantorski)
 process "ovl-sysmodules" "ppkantorski/ovl-sysmodules" "ovlSysmodules.ovl" "copy_to" "switch/.overlays"
 
-# 15. FPSLocker (ppkantorski fork)
+# 14. FPSLocker (ppkantorski fork)
 process "FPSLocker (ppkantorski)" "ppkantorski/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
 
-# 16. Memory-Kit
+# 15. Memory-Kit
 process "Memory-Kit" "ppkantorski/Memory-Kit" "Memory.Kit.zip" "unzip_root"
 
-# 17. Alchemist
+# 16. Alchemist
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
-# 18. HOC-Toolkit
+# 17. HOC-Toolkit
 process "HOC-Toolkit" "ppkantorski/HOC-Toolkit" "hoc-toolkit.zip" "unzip_root"
 
-# 19. Ultrahand-Overlay
+# 18. Ultrahand-Overlay
 # NOTE: sdout.zip is also the asset name used by QuickNTP.  We force a unique
 # cache filename here so the two never overwrite each other in _downloads/.
 PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
 
-{
-    tag=$(get_latest_tag "ppkantorski/Ultrahand-Overlay")
-    if [[ -n "$tag" ]]; then
-        assets=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$tag")
-        
-        # ── FIXED: Fetch the standalone ovlmenu.ovl file directly alongside sdout.zip ──
-        ovl_url=$(echo "$assets" | grep "ovlmenu.ovl" | head -1 || true)
-        if [[ -n "$ovl_url" ]]; then
-            info "   Downloading standalone Ultrahand ovlmenu.ovl asset..."
-            download_file "$ovl_url" "$DL_DIR/ovlmenu.ovl"
+# ── Ultrahand companion assets: ovlmenu.ovl + lang.zip ───────────────────────
+# These are separate release assets alongside sdout.zip.  They run in the main
+# shell (not a subshell) so CHANGELOG_ENTRIES is updated correctly.
+echo -e "\n${BOLD}▸ Ultrahand-Overlay companion assets${NC}  (ovlmenu.ovl + lang.zip)"
+
+_uh_tag=$(get_latest_tag "ppkantorski/Ultrahand-Overlay" 2>>"$LOG_FILE" || true)
+
+if [[ -z "$_uh_tag" ]]; then
+    warn "   Could not resolve Ultrahand tag for companion assets."
+    FAILED+=("Ultrahand ovlmenu.ovl")
+    CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|unknown|n/a|FAILED – could not resolve tag")
+else
+    _uh_assets=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$_uh_tag" 2>>"$LOG_FILE" || true)
+
+    # ovlmenu.ovl — the overlay menu binary; lands at switch/.overlays/ovlmenu.ovl
+    _ovl_url=$(echo "$_uh_assets" | grep "ovlmenu\.ovl" | head -1 || true)
+    if [[ -n "$_ovl_url" ]]; then
+        if download_file "$_ovl_url" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/switch/.overlays"
             cp "$DL_DIR/ovlmenu.ovl" "$OUTPUT_DIR/switch/.overlays/ovlmenu.ovl"
-            info "   ovlmenu.ovl mapped cleanly → switch/.overlays/ovlmenu.ovl"
+            ok "   ovlmenu.ovl → switch/.overlays/ovlmenu.ovl"
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|OK")
+            (( DONE++ )) || true
+        else
+            warn "   Failed to download ovlmenu.ovl"
+            FAILED+=("Ultrahand ovlmenu.ovl")
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|FAILED – download error")
         fi
-
-        lang_url=$(echo "$assets" | grep "lang.zip" | head -1 || true)
-        if [[ -n "$lang_url" ]]; then
-            lang_file="$DL_DIR/ultrahand_lang.zip"
-            download_file "$lang_url" "$lang_file"
-            
-            mkdir -p "$OUTPUT_DIR/config/ultrahand/lang"
-            unzip -oq "$lang_file" -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
-            info "   Ultrahand lang.zip extracted into config/ultrahand/lang/"
-        fi
+    else
+        warn "   ovlmenu.ovl not found in release assets for $_uh_tag"
+        FAILED+=("Ultrahand ovlmenu.ovl")
+        CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|n/a|FAILED – asset not matched")
     fi
-} 2>>"$LOG_FILE" || warn "Could not fetch Ultrahand optional companion assets"
 
-# 20. emuiibo
+    # lang.zip — UI language files; optional, non-fatal if absent
+    _lang_url=$(echo "$_uh_assets" | grep "lang\.zip" | head -1 || true)
+    if [[ -n "$_lang_url" ]]; then
+        if download_file "$_lang_url" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
+            mkdir -p "$OUTPUT_DIR/config/ultrahand/lang"
+            unzip -oq "$DL_DIR/ultrahand_lang.zip" \
+                  -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
+            ok "   lang.zip → config/ultrahand/lang/"
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|OK")
+            (( DONE++ )) || true
+        else
+            warn "   Failed to download lang.zip (non-fatal)"
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|FAILED – download error")
+        fi
+    else
+        info "   lang.zip not present in this release — skipping."
+    fi
+fi
+
+# 19. emuiibo
 process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 
-# 21. Status-Monitor-Overlay
+# 20. Status-Monitor-Overlay
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
 
 # =============================================================================
@@ -378,6 +409,51 @@ log_inverted=0
 EOF
 ok "exosphere.ini written with PRODINFO blanking active."
 
+# ── hekate_ipl.ini ──────────────────────────────────────────────────────────
+info "Writing bootloader/hekate_ipl.ini..."
+mkdir -p "$OUTPUT_DIR/bootloader"
+cat << 'EOF' > "$OUTPUT_DIR/bootloader/hekate_ipl.ini"
+[config]
+autoboot=0
+autoboot_list=0
+bootwait=0
+backlight=108
+noticker=0
+autohosoff=2
+autonogc=1
+updater2p=1
+bootprotect=0
+
+[CFW (EMUMMC)]
+kip1patch=nosigchk
+pkg3=atmosphere/package3
+kernel=atmosphere/mesosphere_1.85MB_1.11.bin
+kip1=atmosphere/kips/hoc.kip
+secmon=atmosphere/exosphere.bin
+emummcforce=1
+icon=bootloader/res/emummc.bmp
+EOF
+ok "bootloader/hekate_ipl.ini written."
+
+# ── bootloader/res/emummc.bmp ───────────────────────────────────────────────
+# Downloaded from this repository's own assets/ folder (not a third-party release).
+# GITHUB_REPOSITORY is set automatically in GitHub Actions; fall back to the
+# known repo slug when running locally.
+info "Fetching emummc.bmp from repo assets..."
+_REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
+_BMP_URL="https://raw.githubusercontent.com/${_REPO_SLUG}/main/assets/emummc.bmp"
+mkdir -p "$OUTPUT_DIR/bootloader/res"
+if curl -sL --max-time 30 --retry 3 \
+        -H "User-Agent: build_nx_pack/1.0" \
+        ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "$_BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
+   && [[ $(wc -c < "$OUTPUT_DIR/bootloader/res/emummc.bmp") -gt 512 ]]; then
+    ok "bootloader/res/emummc.bmp placed."
+else
+    warn "Could not download emummc.bmp from $_BMP_URL — placeholder omitted."
+    rm -f "$OUTPUT_DIR/bootloader/res/emummc.bmp"
+fi
+
 # =============================================================================
 #  POST-BUILD: ensure essential directories exist
 # =============================================================================
@@ -399,6 +475,7 @@ declare -a ENSURE_DIRS=(
     "atmosphere/exefs_patches"
     "atmosphere/kips"
     "bootloader/payloads"
+    "bootloader/res"
     "config"
     "switch"
     "switch/.overlays"
@@ -561,9 +638,9 @@ echo "  $CHANGELOG_TXT"
 
 echo
 echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Create bootloader/hekate_ipl.ini with your boot entries (see Hekate wiki)."
-echo "  2. Copy everything inside $OUTPUT_DIR/ to the root of your FAT32/exFAT SD card."
-echo "  3. Boot via Hekate payload."
+echo "  1. Copy everything inside $OUTPUT_DIR/ to the root of your FAT32/exFAT SD card."
+echo "  2. Boot via Hekate payload — bootloader/hekate_ipl.ini is already configured."
+echo "  3. Select 'CFW (EMUMMC)' from the Hekate boot menu."
 
 if [[ "${KEEP_DOWNLOADS:-0}" != "1" ]]; then
     rm -rf "$DL_DIR"
