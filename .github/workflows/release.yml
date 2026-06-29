@@ -63,7 +63,7 @@ jobs:
   build:
     name: Build SD Card Pack
     runs-on: ubuntu-latest
-    timeout-minutes: 30          # build_nx_pack.sh: ~21 components × max 120s each
+    timeout-minutes: 30          # build_nx_pack.sh: 20 process steps + 2 Ultrahand companion assets
 
     outputs:
       version:      ${{ steps.version.outputs.tag }}
@@ -166,12 +166,14 @@ jobs:
       # ── 8. Package ─────────────────────────────────────────────────────────
       # zip . (dot, not *) includes hidden directories like switch/.overlays
       # without relying on `shopt -s dotglob` or shell glob expansion at all.
-      # The --exclude pattern drops the zip file itself if it lands in the dir.
+      # IMPORTANT: do NOT use --exclude "*.zip" here — config/ultrahand/.sounds/
+      # default.zip is a legitimate payload file that must travel in the package.
+      # Instead we move the output zip outside SD_Card_Output before zipping so
+      # it can never be accidentally included.
       - name: Compress SD Card Output
         run: |
           cd "${{ github.workspace }}/SD_Card_Output"
-          zip -r "${{ github.workspace }}/SD_Card_Package.zip" . \
-              --exclude "*.zip"
+          zip -r "${{ github.workspace }}/SD_Card_Package.zip" .
           echo "Package size: $(du -sh "${{ github.workspace }}/SD_Card_Package.zip" | cut -f1)"
 
       # ── 9. Upload zip artifact ─────────────────────────────────────────────
