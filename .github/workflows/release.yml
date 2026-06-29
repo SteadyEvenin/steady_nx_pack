@@ -63,7 +63,7 @@ jobs:
   build:
     name: Build SD Card Pack
     runs-on: ubuntu-latest
-    timeout-minutes: 30          # build_nx_pack.sh: 20 process steps + 2 Ultrahand companion assets
+    timeout-minutes: 30          # build_nx_pack.sh: 23 process steps + 2 Ultrahand companion assets + mesosphere
 
     outputs:
       version:      ${{ steps.version.outputs.tag }}
