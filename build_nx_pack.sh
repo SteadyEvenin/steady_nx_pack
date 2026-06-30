@@ -9,18 +9,25 @@
 #   • theme-patches      • nx-ovlloader         • EdiZon-Overlay
 #   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch
 #   • ovl-sysmodules     • FPSLocker (ppkant.)  • Memory-Kit
-#   • Alchemist          • HOC-Toolkit          • Ultrahand-Overlay
-#   • Ultrahand ovlmenu.ovl • Ultrahand lang.zip • ReverseNX-RT
-#   • DNS-MITM_Manager   • ldn_mitm             • Quick-Reboot (.nro + .ovl)
-#   • emuiibo            • Status-Monitor-Overlay
+#   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
+#   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
+#   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
+#   • Status-Monitor-Overlay • sphaira
 #
 #  Generated config files:
-#   • exosphere.ini              (atmosphere PRODINFO blanking)
+#   • exosphere.ini              (atmosphere/ — PRODINFO blanking)
 #   • bootloader/hekate_ipl.ini  (Hekate boot menu — CFW EMUMMC entry)
+#     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
+#     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
+#
+#  ⚠  HOC-Toolkit (ppkantorski/HOC-Toolkit) is intentionally NOT included.
+#     hoc.kip referenced in hekate_ipl.ini is the Horizon-OC kernel patch
+#     shipped directly by Horizon-OC/Horizon-OC — not HOC-Toolkit.
+#     HOC-Toolkit (a switch/.packages Ultrahand addon) is excluded by design.
 #
 #  Repo assets copied:
-#   • bootloader/res/emummc.bmp       (from assets/emummc.bmp in this repo)
-#   • atmosphere/mesosphere_1.85MB_1.11.bin  (from ppkantorski/Memory-Kit repo tree)
+#   • bootloader/res/emummc.bmp             (from assets/ in this repo)
+#   • atmosphere/mesosphere_1.85MB_1.11.bin (from ppkantorski/Memory-Kit repo tree)
 #
 #  Requirements (all standard on Ubuntu/Debian):
 #    curl  unzip  python3
@@ -345,10 +352,7 @@ fi
 # 16. Alchemist
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
-# 17. HOC-Toolkit
-process "HOC-Toolkit" "ppkantorski/HOC-Toolkit" "hoc-toolkit.zip" "unzip_root"
-
-# 18. Ultrahand-Overlay
+# 17. Ultrahand-Overlay
 # sdout.zip previously collided with nedex/QuickNTP's sdout.zip, requiring a filename
 # override.  QuickNTP is now ppkantorski/QuickNTP (step 11) which ships a standalone
 # .ovl — no collision risk remains.  PROCESS_FILENAME_OVERRIDE kept for safety in case
@@ -409,18 +413,18 @@ else
     fi
 fi
 
-# 19. ReverseNX-RT (ppkantorski fork of masagrator/ReverseNX-RT)
+# 18. ReverseNX-RT (ppkantorski fork of masagrator/ReverseNX-RT)
 # Real-time handheld/docked mode switcher overlay.  Requires SaltyNX (step 6).
 # Asset is named ReverseNX-RT-ovl.ovl — renamed to ReverseNX-RT.ovl on copy
 # to match the conventional .ovl naming used by all other overlays in this pack.
 process "ReverseNX-RT" "ppkantorski/ReverseNX-RT" "ReverseNX-RT-ovl\.ovl" "copy_to" "switch/.overlays" "ReverseNX-RT.ovl"
 
-# 20. DNS-MITM_Manager
+# 19. DNS-MITM_Manager
 # Tesla/Ultrahand overlay for managing Atmosphere's DNS MITM hosts file entries
 # without rebooting.  Zip ships the switch/.overlays/ path internally → unzip_root.
 process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "unzip_root"
 
-# 21. ldn_mitm
+# 20. ldn_mitm
 # LAN-play sysmodule: replaces the system ldn service with UDP LAN emulation.
 # Zip ships full SD layout per its Makefile:
 #   atmosphere/contents/4200000000000010/  (exefs.nsp + toolbox.json + flags/boot2.flag)
@@ -428,14 +432,14 @@ process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "un
 #   switch/.overlays/ldnmitm_config.ovl
 process "ldn_mitm" "spacemeowx2/ldn_mitm" "ldn_mitm_" "unzip_root"
 
-# 22 & 23. Quick-Reboot (.nro hbmenu app + .ovl Ultrahand overlay)
+# 21 & 22. Quick-Reboot (.nro hbmenu app + .ovl Ultrahand overlay)
 # Two separate assets from the same release — fetched with two process() calls.
 # .nro → switch/ (standard hbmenu app location)
 # .ovl → switch/.overlays/ (Tesla/Ultrahand overlay)
 process "Quick-Reboot (app)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.nro" "copy_to" "switch"
 process "Quick-Reboot (overlay)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.ovl" "copy_to" "switch/.overlays"
 
-# 24. emuiibo
+# 23. emuiibo
 # emuiibo.zip is a root-extract archive.  It places:
 #   atmosphere/contents/0100000000000352/exefs.nsp  — sysmodule binary
 #   atmosphere/contents/0100000000000352/flags/      — boot2.flag (auto-start)
@@ -446,8 +450,15 @@ process "Quick-Reboot (overlay)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.o
 # nx-ovlloader is already provided by step 8 — no duplication needed.
 process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 
-# 25. Status-Monitor-Overlay
+# 24. Status-Monitor-Overlay
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
+
+# 25. sphaira
+# Homebrew menu replacement.  sphaira.zip extracts to switch/sphaira/sphaira.nro
+# (its own subfolder, consistent with hbmenu conventions).
+# Features: app installer (NSP/XCI/NSZ), FTP/MTP server, file browser,
+# theme support, appstore integration.
+process "sphaira" "ITotalJustice/sphaira" "sphaira.zip" "unzip_root"
 
 # =============================================================================
 #  GENERATE CONFIGURATION FILES
@@ -490,6 +501,8 @@ bootprotect=0
 kip1patch=nosigchk
 pkg3=atmosphere/package3
 kernel=atmosphere/mesosphere_1.85MB_1.11.bin
+; hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
+; HOC-Toolkit (ppkantorski) is a separate Ultrahand package and is NOT included in this pack.
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
 emummcforce=1
