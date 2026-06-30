@@ -91,7 +91,11 @@ SD_Card_Output/
 ├── switch/
 ├── config/
 ├── themes/
+├── SaltySD/
+├── emuiibo/
+├── hbmenu.nro
 ├── hekate.bin
+├── hekate_ctcaer_6.5.3.bin
 ├── payload.bin
 ├── exosphere.ini
 ├── CHANGELOG.md
