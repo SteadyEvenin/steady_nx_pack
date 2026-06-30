@@ -7,8 +7,10 @@
 #  Triggers
 #  ────────
 #  • Push of any tag matching v*         (e.g. v1.2.3)
+#  • poll_upstreams.yml dispatch         (automatic — fires when any tracked upstream
+#    publishes a new release; passes changed_components listing what updated)
 #  • Manual dispatch via "Run workflow"  (auto-generates a dated version tag)
-#    └─ optional input: version_tag – override the auto-generated name
+#    └─ optional inputs: version_tag, changed_components
 # =============================================================================
 
 name: Build and Release CFW Pack
@@ -24,6 +26,12 @@ on:
         description: >
           Version tag override (optional).
           Leave blank to auto-generate: v[YYYY.MM.DD]-build.[run].[attempt]-[sha7]
+        required: false
+        default: ''
+      changed_components:
+        description: >
+          Comma-separated list of components that triggered this build (set
+          automatically by poll_upstreams.yml; leave blank for manual builds).
         required: false
         default: ''
 
@@ -63,7 +71,9 @@ jobs:
   build:
     name: Build SD Card Pack
     runs-on: ubuntu-latest
-    timeout-minutes: 30          # build_nx_pack.sh: 23 process steps + 2 Ultrahand companion assets + mesosphere
+    # 24 process() steps + 2 Ultrahand companion assets + 1 mesosphere fetch = 27 tracked entries
+    # Each download: --max-time 120 --retry 3.  30 min is a safe ceiling.
+    timeout-minutes: 30
 
     outputs:
       version:      ${{ steps.version.outputs.tag }}
@@ -146,21 +156,57 @@ jobs:
       # the header + component table (+ optional failed list) into a separate
       # file used as the release body.  The complete changelog travels inside
       # the zip so it's always available on the release page as a download.
+      #
+      # If this build was triggered by poll_upstreams.yml, a "What changed"
+      # banner is prepended to make the trigger transparent in the release.
       - name: Extract release body from changelog
+        env:
+          CHANGED_COMPONENTS: ${{ github.event.inputs.changed_components }}
         run: |
           CHANGELOG="${{ github.workspace }}/SD_Card_Output/CHANGELOG.md"
           RELEASE_BODY="${{ github.workspace }}/release_body.md"
 
-          # Copy every line up to (but not including) the "## SD Card Layout"
-          # section.  sed -n with a range address + p prints matching lines.
-          sed -n '1,/^## SD Card Layout$/{ /^## SD Card Layout$/!p }' \
-              "$CHANGELOG" > "$RELEASE_BODY"
+          # Determine trigger source for the banner
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            TRIGGER="Tag push: \`${{ github.ref_name }}\`"
+          elif [[ -n "$CHANGED_COMPONENTS" ]]; then
+            TRIGGER="Automatic — upstream release(s) detected by poller"
+          else
+            TRIGGER="Manual dispatch"
+          fi
 
-          # Trim any trailing blank lines / horizontal rules for a clean ending
+          # Build the banner (always shown — makes every release self-describing)
+          {
+            echo "## 🔄 What triggered this build"
+            echo ""
+            echo "**Trigger:** ${TRIGGER}"
+            echo ""
+            if [[ -n "$CHANGED_COMPONENTS" ]]; then
+              echo "**Updated components:**"
+              echo ""
+              # One bullet per component
+              IFS=',' read -ra parts <<< "$CHANGED_COMPONENTS"
+              for part in "${parts[@]}"; do
+                echo "- $(echo "$part" | xargs)"
+              done
+              echo ""
+            fi
+            echo "**Built:** $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo "**Commit:** [\`$(echo '${{ github.sha }}' | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})"
+            echo ""
+            echo "---"
+            echo ""
+          } > "$RELEASE_BODY"
+
+          # Append component table from CHANGELOG (everything before SD Card Layout)
+          sed -n '1,/^## SD Card Layout$/{ /^## SD Card Layout$/!p }' \
+              "$CHANGELOG" >> "$RELEASE_BODY"
+
+          # Trim trailing whitespace for a clean ending
           perl -i -0pe 's/[\n\r\s]*$//; print "\n"' "$RELEASE_BODY"
 
-          echo "Release body (${RELEASE_BODY}):"
-          echo "─────────────────────────────────"
+          echo "Release body preview:"
+          echo "─────────────────────"
           cat "$RELEASE_BODY"
 
       # ── 8. Package ─────────────────────────────────────────────────────────
