@@ -20,11 +20,6 @@
 #     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
 #     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
 #
-#  ⚠  HOC-Toolkit (ppkantorski/HOC-Toolkit) is intentionally NOT included.
-#     hoc.kip referenced in hekate_ipl.ini is the Horizon-OC kernel patch
-#     shipped directly by Horizon-OC/Horizon-OC — not HOC-Toolkit.
-#     HOC-Toolkit (a switch/.packages Ultrahand addon) is excluded by design.
-#
 #  Repo assets copied:
 #   • bootloader/res/emummc.bmp             (from assets/ in this repo)
 #   • atmosphere/mesosphere_1.85MB_1.11.bin (from ppkantorski/Memory-Kit repo tree)
@@ -501,8 +496,6 @@ bootprotect=0
 kip1patch=nosigchk
 pkg3=atmosphere/package3
 kernel=atmosphere/mesosphere_1.85MB_1.11.bin
-; hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
-; HOC-Toolkit (ppkantorski) is a separate Ultrahand package and is NOT included in this pack.
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
 emummcforce=1
