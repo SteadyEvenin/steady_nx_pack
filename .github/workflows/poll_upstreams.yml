@@ -1,0 +1,337 @@
+# =============================================================================
+#  .github/workflows/poll_upstreams.yml
+#
+#  Polls every upstream repository for new releases every 6 hours.
+#  When one or more repos have published a new tag since the last check,
+#  this workflow:
+#    1. Updates the stored tag baseline (committed to the `upstream-state` branch)
+#    2. Triggers release.yml via workflow_dispatch, passing the list of
+#       changed components so the release body can disclose what changed
+#
+#  State storage
+#  ─────────────
+#  The baseline of "last known tags" is kept as a JSON file (.upstream-tags.json)
+#  committed to a dedicated orphan branch called `upstream-state`.  This branch
+#  holds only that one file and is never merged into main.  Every update creates
+#  a commit so the full history of upstream changes is preserved and auditable.
+#
+#  First-run bootstrap
+#  ───────────────────
+#  If the `upstream-state` branch does not exist yet, this workflow creates it
+#  automatically on its first run, populates it with all current latest tags,
+#  and does NOT trigger a build (there is nothing "new" on first run — every
+#  tag is new relative to an empty baseline, which would be a false positive).
+#
+#  Permissions
+#  ───────────
+#  contents: write  — checkout + commit to upstream-state branch
+#  actions:  write  — trigger release.yml via workflow_dispatch
+# =============================================================================
+
+name: Poll Upstream Releases
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'     # every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC
+
+  workflow_dispatch:           # manual "check now" button in the Actions tab
+    inputs:
+      force_build:
+        description: 'Trigger a release build even if no upstreams changed'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: poll-upstreams
+  cancel-in-progress: true    # only one poller at a time; cancel stale scheduled runs
+
+permissions:
+  contents: write
+  actions:  write
+
+# =============================================================================
+#  Tracked repositories
+#  ────────────────────
+#  Each entry maps a human-readable component name to its GitHub repo slug.
+#  Keep this list in sync with the process() calls in build_nx_pack.sh.
+#  Ultrahand-Overlay covers ovlmenu.ovl and lang.zip (same repo, same tag).
+#  Memory-Kit covers both the zip and the mesosphere bin (same repo, same tag).
+#  Quick-Reboot covers both the .nro and .ovl (same repo, same tag).
+# =============================================================================
+
+env:
+  # JSON mapping: "Display Name" → "owner/repo"
+  # Must be valid compact JSON (no trailing commas).
+  TRACKED: |
+    {
+      "Atmosphère":              "Atmosphere-NX/Atmosphere",
+      "Hekate":                  "CTCaer/hekate",
+      "DBI":                     "rashevskyv/dbi",
+      "disable_remap_dialog":    "japz/disable_remap_dialog",
+      "MissionControl":          "ndeadly/MissionControl",
+      "SaltyNX":                 "masagrator/SaltyNX",
+      "theme-patches":           "exelix11/theme-patches",
+      "nx-ovlloader":            "ppkantorski/nx-ovlloader",
+      "EdiZon-Overlay":          "proferabg/EdiZon-Overlay",
+      "Horizon-OC":              "Horizon-OC/Horizon-OC",
+      "QuickNTP":                "ppkantorski/QuickNTP",
+      "sys-patch":               "borntohonk/sys-patch",
+      "ovl-sysmodules":          "ppkantorski/ovl-sysmodules",
+      "FPSLocker":               "ppkantorski/FPSLocker",
+      "Memory-Kit":              "ppkantorski/Memory-Kit",
+      "Alchemist":               "ppkantorski/Alchemist",
+      "Ultrahand-Overlay":       "ppkantorski/Ultrahand-Overlay",
+      "ReverseNX-RT":            "ppkantorski/ReverseNX-RT",
+      "DNS-MITM_Manager":        "sthetix/DNS-MITM_Manager",
+      "ldn_mitm":                "spacemeowx2/ldn_mitm",
+      "Quick-Reboot":            "eradicatinglove/Quick-Reboot",
+      "emuiibo":                 "XorTroll/emuiibo",
+      "Status-Monitor-Overlay":  "ppkantorski/Status-Monitor-Overlay",
+      "sphaira":                 "ITotalJustice/sphaira"
+    }
+
+jobs:
+  poll:
+    name: Check upstream releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ── 1. Checkout main (for the workflow files themselves) ───────────────
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history so we can switch/create branches
+
+      # ── 2. Configure git identity for baseline commits ─────────────────────
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── 3. Fetch or bootstrap the upstream-state branch ───────────────────
+      - name: Fetch upstream-state branch
+        id: state_branch
+        run: |
+          if git ls-remote --exit-code origin upstream-state > /dev/null 2>&1; then
+            git fetch origin upstream-state
+            git checkout upstream-state
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "upstream-state branch not found — will bootstrap on first run."
+            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── 4. Load baseline tags ──────────────────────────────────────────────
+      - name: Load baseline tags
+        id: baseline
+        run: |
+          if [[ -f ".upstream-tags.json" ]]; then
+            echo "Loaded existing baseline:"
+            cat .upstream-tags.json
+          else
+            echo "No baseline found — will create one (no build triggered)."
+            echo "{}" > .upstream-tags.json
+          fi
+
+      # ── 5. Query GitHub API for all current latest tags ───────────────────
+      - name: Query upstream latest tags
+        id: query
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          tracked   = json.loads(os.environ["TRACKED"])
+          token     = os.environ.get("GH_TOKEN", "")
+          baseline  = json.loads(open(".upstream-tags.json").read())
+
+          current   = {}   # name → current_tag
+          changed   = {}   # name → {"old": ..., "new": ...}
+          errors    = []   # names that failed API lookup
+
+          headers = {
+              "User-Agent":    "steady_nx_pack-poller/1.0",
+              "Accept":        "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+          if token:
+              headers["Authorization"] = f"Bearer {token}"
+
+          for name, repo in tracked.items():
+              url = f"https://api.github.com/repos/{repo}/releases/latest"
+              try:
+                  req  = urllib.request.Request(url, headers=headers)
+                  resp = urllib.request.urlopen(req, timeout=15)
+                  data = json.loads(resp.read())
+                  tag  = data.get("tag_name", "").strip()
+                  if not tag:
+                      errors.append(f"{name}: empty tag_name in response")
+                      continue
+                  current[name] = tag
+                  old_tag = baseline.get(name, "")
+                  if tag != old_tag:
+                      changed[name] = {"old": old_tag or "(none)", "new": tag, "repo": repo}
+              except urllib.error.HTTPError as e:
+                  errors.append(f"{name} ({repo}): HTTP {e.code}")
+              except Exception as e:
+                  errors.append(f"{name} ({repo}): {e}")
+
+          # Write outputs
+          env_file = os.environ["GITHUB_OUTPUT"]
+          with open(env_file, "a") as f:
+              f.write(f"changed_count={len(changed)}\n")
+              if changed:
+                  # Comma-separated display names of changed components
+                  names_csv = ",".join(changed.keys())
+                  f.write(f"changed_names={names_csv}\n")
+                  # Full detail as compact JSON for the release body
+                  f.write(f"changed_json={json.dumps(changed)}\n")
+              else:
+                  f.write("changed_names=\n")
+                  f.write("changed_json={}\n")
+              f.write(f"error_count={len(errors)}\n")
+
+          # Persist files for next step
+          with open("current_tags.json", "w") as f:
+              json.dump(current, f, indent=2)
+          with open("changed_tags.json", "w") as f:
+              json.dump(changed, f, indent=2)
+          with open("errors.txt", "w") as f:
+              f.write("\n".join(errors))
+
+          print(f"Queried {len(tracked)} repos.")
+          print(f"Changed: {len(changed)}")
+          print(f"Errors:  {len(errors)}")
+          if errors:
+              for e in errors: print(f"  {e}")
+          PYEOF
+
+      # ── 6. Update baseline and commit ─────────────────────────────────────
+      # Runs when tags changed OR on first bootstrap (branch_exists=false).
+      # On first run: commits the full current baseline without triggering a build.
+      - name: Update baseline and commit to upstream-state
+        if: steps.query.outputs.changed_count != '0' || steps.state_branch.outputs.branch_exists == 'false'
+        run: |
+          CHANGED_COUNT="${{ steps.query.outputs.changed_count }}"
+          BRANCH_EXISTS="${{ steps.state_branch.outputs.branch_exists }}"
+
+          # Switch to or create the upstream-state orphan branch
+          if [[ "$BRANCH_EXISTS" == "false" ]]; then
+            git checkout --orphan upstream-state
+            git rm -rf . --quiet 2>/dev/null || true
+          fi
+
+          cp current_tags.json .upstream-tags.json
+
+          git add .upstream-tags.json
+
+          if [[ "$BRANCH_EXISTS" == "false" ]]; then
+            COMMIT_MSG="chore: bootstrap upstream-state baseline [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+          else
+            CHANGED_NAMES="${{ steps.query.outputs.changed_names }}"
+            COMMIT_MSG="chore: upstream update [$(date -u +'%Y-%m-%d %H:%M UTC')] — ${CHANGED_NAMES}"
+          fi
+
+          git commit -m "$COMMIT_MSG"
+          git push origin upstream-state
+
+      # ── 7. Trigger release workflow ────────────────────────────────────────
+      # Only fires when tags actually changed (not on bootstrap or no-change runs).
+      # The changed_components input tells release.yml what to highlight in the
+      # release body.  force_build=true bypasses the changed_count guard.
+      - name: Trigger release workflow
+        if: >
+          steps.query.outputs.changed_count != '0' ||
+          github.event.inputs.force_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGED_NAMES="${{ steps.query.outputs.changed_names }}"
+          FORCE="${{ github.event.inputs.force_build }}"
+
+          if [[ "$FORCE" == "true" && -z "$CHANGED_NAMES" ]]; then
+            CHANGED_NAMES="(manual force — no upstream changes detected)"
+          fi
+
+          echo "Triggering release.yml with changed_components: ${CHANGED_NAMES}"
+
+          gh workflow run release.yml \
+            --ref main \
+            --field changed_components="${CHANGED_NAMES}" \
+            --field version_tag=""
+
+          echo "release.yml dispatch sent."
+
+      # ── 8. Job summary ─────────────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          CHANGED_COUNT="${{ steps.query.outputs.changed_count }}"
+          ERROR_COUNT="${{ steps.query.outputs.error_count }}"
+          BRANCH_EXISTS="${{ steps.state_branch.outputs.branch_exists }}"
+
+          {
+            echo "## Upstream Poll — $(date -u +'%Y-%m-%d %H:%M UTC')"
+            echo ""
+
+            if [[ "$BRANCH_EXISTS" == "false" ]]; then
+              echo "> ℹ️ **First run** — baseline created. No build triggered."
+              echo ""
+            fi
+
+            if [[ "$CHANGED_COUNT" -gt 0 ]]; then
+              echo "### 🆕 Updated components ($CHANGED_COUNT)"
+              echo ""
+              echo "| Component | Repo | Previous | New |"
+              echo "|-----------|------|----------|-----|"
+              python3 -c "
+          import json
+          data = json.load(open('changed_tags.json'))
+          for name, info in data.items():
+              repo = info['repo']
+              old  = info['old']
+              new  = info['new']
+              url  = f'https://github.com/{repo}/releases/tag/{new}'
+              print(f'| {name} | [{repo}](https://github.com/{repo}) | \`{old}\` | [\`{new}\`]({url}) |')
+          "
+              echo ""
+              echo "✅ **release.yml triggered** — a new pack will be built and published."
+            else
+              echo "### ✅ All components up to date"
+              echo ""
+              echo "No upstream changes detected. No build triggered."
+            fi
+
+            if [[ "$ERROR_COUNT" -gt 0 ]]; then
+              echo ""
+              echo "### ⚠️ API errors ($ERROR_COUNT)"
+              echo '```'
+              cat errors.txt
+              echo '```'
+            fi
+
+            echo ""
+            echo "### All tracked components"
+            echo ""
+            echo "| Component | Repo | Current tag |"
+            echo "|-----------|------|-------------|"
+            python3 -c "
+          import json, os
+          tracked  = json.loads(os.environ['TRACKED'])
+          current  = json.loads(open('current_tags.json').read()) if os.path.exists('current_tags.json') else {}
+          changed  = json.loads(open('changed_tags.json').read()) if os.path.exists('changed_tags.json') else {}
+          for name, repo in tracked.items():
+              tag = current.get(name, '(error)')
+              badge = ' 🆕' if name in changed else ''
+              url = f'https://github.com/{repo}/releases/tag/{tag}' if tag != '(error)' else f'https://github.com/{repo}'
+              print(f'| {name}{badge} | [{repo}](https://github.com/{repo}) | [\`{tag}\`]({url}) |')
+          "
+          } >> "$GITHUB_STEP_SUMMARY"
