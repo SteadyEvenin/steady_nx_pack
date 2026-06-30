@@ -22,8 +22,8 @@ This is a personal build script, not a curated "best of" list. Component selecti
 A handful of components don't ship everything needed inside their release zip and are handled with explicit extra steps:
 
 - **Ultrahand-Overlay**: `ovlmenu.ovl` and `lang.zip` are separate release assets alongside `sdout.zip` and are fetched individually.
-- **Memory-Kit**: the release zip does not include the mesosphere kernel binary it depends on. `mesosphere_1.85MB_1.11.bin` is fetched directly from the repository's source tree (`raw.githubusercontent.com`, not a release asset) and placed at `atmosphere/`.
-- **bootloader/res/emummc.bmp**: pulled from this repo's own `assets/` folder, not from any upstream.
+- **Memory-Kit**: the release zip does not include the mesosphere kernel binary it depends on. `mesosphere_1.85MB_1.11.bin` is fetched directly from the repository's source tree (`raw.githubusercontent.com`) and placed at `atmosphere/`.
+- **bootloader/res/emummc.bmp**: pulled from this repo's own `assets/` folder.
 
 After all components are processed, the script generates two config files:
 
