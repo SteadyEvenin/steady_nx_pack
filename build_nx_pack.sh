@@ -18,12 +18,7 @@
 #   • exosphere.ini              (atmosphere/ — PRODINFO blanking)
 #   • bootloader/hekate_ipl.ini  (Hekate boot menu — CFW EMUMMC entry)
 #     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
-#     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
-#
-#  ⚠  HOC-Toolkit (ppkantorski/HOC-Toolkit) is intentionally NOT included.
-#     hoc.kip referenced in hekate_ipl.ini is the Horizon-OC kernel patch
-#     shipped directly by Horizon-OC/Horizon-OC — not HOC-Toolkit.
-#     HOC-Toolkit (a switch/.packages Ultrahand addon) is excluded by design.
+#     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC
 #
 #  Repo assets copied:
 #   • bootloader/res/emummc.bmp             (from assets/ in this repo)
@@ -456,8 +451,6 @@ process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Mo
 # 25. sphaira
 # Homebrew menu replacement.  sphaira.zip extracts to switch/sphaira/sphaira.nro
 # (its own subfolder, consistent with hbmenu conventions).
-# Features: app installer (NSP/XCI/NSZ), FTP/MTP server, file browser,
-# theme support, appstore integration.
 process "sphaira" "ITotalJustice/sphaira" "sphaira.zip" "unzip_root"
 
 # =============================================================================
@@ -501,8 +494,6 @@ bootprotect=0
 kip1patch=nosigchk
 pkg3=atmosphere/package3
 kernel=atmosphere/mesosphere_1.85MB_1.11.bin
-; hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
-; HOC-Toolkit (ppkantorski) is a separate Ultrahand package and is NOT included in this pack.
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
 emummcforce=1
@@ -511,7 +502,7 @@ EOF
 ok "bootloader/hekate_ipl.ini written."
 
 # ── bootloader/res/emummc.bmp ───────────────────────────────────────────────
-# Downloaded from this repository's own assets/ folder (not a third-party release).
+# Downloaded from this repository's own assets/ folder.
 # GITHUB_REPOSITORY is set automatically in GitHub Actions; fall back to the
 # known repo slug when running locally.
 info "Fetching emummc.bmp from repo assets..."
