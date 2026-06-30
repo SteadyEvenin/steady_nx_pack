@@ -66,17 +66,16 @@ permissions:
 # =============================================================================
 
 env:
-  # JSON mapping: "Display Name" → "owner/repo"
+  # Repos tracked via /releases/latest (tag_name).
   # Must be valid compact JSON (no trailing commas).
-  TRACKED: |
+  TRACKED_RELEASES: |
     {
       "Atmosphère":              "Atmosphere-NX/Atmosphere",
       "Hekate":                  "CTCaer/hekate",
       "DBI":                     "rashevskyv/dbi",
-      "disable_remap_dialog":    "japz/disable_remap_dialog",
+      "disable_remap_dialog":    "ndeadly/disable_remap_dialog",
       "MissionControl":          "ndeadly/MissionControl",
       "SaltyNX":                 "masagrator/SaltyNX",
-      "theme-patches":           "exelix11/theme-patches",
       "nx-ovlloader":            "ppkantorski/nx-ovlloader",
       "EdiZon-Overlay":          "proferabg/EdiZon-Overlay",
       "Horizon-OC":              "Horizon-OC/Horizon-OC",
@@ -94,6 +93,14 @@ env:
       "emuiibo":                 "XorTroll/emuiibo",
       "Status-Monitor-Overlay":  "ppkantorski/Status-Monitor-Overlay",
       "sphaira":                 "ITotalJustice/sphaira"
+    }
+
+  # Repos with no GitHub Releases — tracked by latest commit SHA on master.
+  # The build script fetches these directly from the source tree (SOURCE:branch),
+  # so a new commit is the meaningful signal, not a release tag.
+  TRACKED_COMMITS: |
+    {
+      "theme-patches": "exelix11/theme-patches"
     }
 
 jobs:
@@ -140,78 +147,90 @@ jobs:
             echo "{}" > .upstream-tags.json
           fi
 
-      # ── 5. Query GitHub API for all current latest tags ───────────────────
+      # ── 5. Query GitHub API for current tags/SHAs ───────────────────────
+      # Release-tracked repos: calls /releases/latest for a tag_name.
+      # Commit-tracked repos (no GitHub Releases): calls /commits/master
+      # for a short SHA — a new commit on master signals an update.
       - name: Query upstream latest tags
         id: query
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 << 'PYEOF'
-          import json, os, sys, urllib.request, urllib.error
+          import json, os, urllib.request, urllib.error
 
-          tracked   = json.loads(os.environ["TRACKED"])
-          token     = os.environ.get("GH_TOKEN", "")
-          baseline  = json.loads(open(".upstream-tags.json").read())
+          tracked_releases = json.loads(os.environ["TRACKED_RELEASES"])
+          tracked_commits  = json.loads(os.environ["TRACKED_COMMITS"])
+          token            = os.environ.get("GH_TOKEN", "")
+          baseline         = json.loads(open(".upstream-tags.json").read())
 
-          current   = {}   # name → current_tag
-          changed   = {}   # name → {"old": ..., "new": ...}
-          errors    = []   # names that failed API lookup
+          current = {}
+          changed = {}
+          errors  = []
 
           headers = {
-              "User-Agent":    "steady_nx_pack-poller/1.0",
-              "Accept":        "application/vnd.github+json",
+              "User-Agent":           "steady_nx_pack-poller/1.0",
+              "Accept":               "application/vnd.github+json",
               "X-GitHub-Api-Version": "2022-11-28",
           }
           if token:
               headers["Authorization"] = f"Bearer {token}"
 
-          for name, repo in tracked.items():
-              url = f"https://api.github.com/repos/{repo}/releases/latest"
+          def fetch(url):
+              req  = urllib.request.Request(url, headers=headers)
+              resp = urllib.request.urlopen(req, timeout=15)
+              return json.loads(resp.read())
+
+          # Release-tracked: /releases/latest
+          for name, repo in tracked_releases.items():
               try:
-                  req  = urllib.request.Request(url, headers=headers)
-                  resp = urllib.request.urlopen(req, timeout=15)
-                  data = json.loads(resp.read())
+                  data = fetch(f"https://api.github.com/repos/{repo}/releases/latest")
                   tag  = data.get("tag_name", "").strip()
                   if not tag:
                       errors.append(f"{name}: empty tag_name in response")
                       continue
                   current[name] = tag
-                  old_tag = baseline.get(name, "")
-                  if tag != old_tag:
-                      changed[name] = {"old": old_tag or "(none)", "new": tag, "repo": repo}
+                  old = baseline.get(name, "")
+                  if tag != old:
+                      changed[name] = {"old": old or "(none)", "new": tag,
+                                       "repo": repo, "kind": "release"}
               except urllib.error.HTTPError as e:
                   errors.append(f"{name} ({repo}): HTTP {e.code}")
               except Exception as e:
                   errors.append(f"{name} ({repo}): {e}")
 
-          # Write outputs
-          env_file = os.environ["GITHUB_OUTPUT"]
-          with open(env_file, "a") as f:
+          # Commit-tracked: /commits/master (no releases published)
+          for name, repo in tracked_commits.items():
+              try:
+                  data = fetch(f"https://api.github.com/repos/{repo}/commits/master")
+                  sha  = data.get("sha", "")[:7]
+                  if not sha:
+                      errors.append(f"{name}: no SHA in commits response")
+                      continue
+                  current[name] = sha
+                  old = baseline.get(name, "")
+                  if sha != old:
+                      changed[name] = {"old": old or "(none)", "new": sha,
+                                       "repo": repo, "kind": "commit"}
+              except urllib.error.HTTPError as e:
+                  errors.append(f"{name} ({repo}): HTTP {e.code}")
+              except Exception as e:
+                  errors.append(f"{name} ({repo}): {e}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"changed_count={len(changed)}\n")
-              if changed:
-                  # Comma-separated display names of changed components
-                  names_csv = ",".join(changed.keys())
-                  f.write(f"changed_names={names_csv}\n")
-                  # Full detail as compact JSON for the release body
-                  f.write(f"changed_json={json.dumps(changed)}\n")
-              else:
-                  f.write("changed_names=\n")
-                  f.write("changed_json={}\n")
+              f.write(f"changed_names={','.join(changed.keys())}\n")
+              f.write(f"changed_json={json.dumps(changed)}\n")
               f.write(f"error_count={len(errors)}\n")
 
-          # Persist files for next step
-          with open("current_tags.json", "w") as f:
-              json.dump(current, f, indent=2)
-          with open("changed_tags.json", "w") as f:
-              json.dump(changed, f, indent=2)
-          with open("errors.txt", "w") as f:
-              f.write("\n".join(errors))
+          with open("current_tags.json",  "w") as f: json.dump(current, f, indent=2)
+          with open("changed_tags.json",  "w") as f: json.dump(changed, f, indent=2)
+          with open("errors.txt",         "w") as f: f.write("\n".join(errors))
 
-          print(f"Queried {len(tracked)} repos.")
-          print(f"Changed: {len(changed)}")
-          print(f"Errors:  {len(errors)}")
-          if errors:
-              for e in errors: print(f"  {e}")
+          print(f"Release-tracked: {len(tracked_releases)}  "
+                f"Commit-tracked: {len(tracked_commits)}")
+          print(f"Changed: {len(changed)}  Errors: {len(errors)}")
+          for e in errors: print(f"  {e}")
           PYEOF
 
       # ── 6. Update baseline and commit ─────────────────────────────────────
@@ -321,17 +340,26 @@ jobs:
             echo ""
             echo "### All tracked components"
             echo ""
-            echo "| Component | Repo | Current tag |"
-            echo "|-----------|------|-------------|"
+            echo "| Component | Repo | Current |"
+            echo "|-----------|------|---------|"
             python3 -c "
           import json, os
-          tracked  = json.loads(os.environ['TRACKED'])
+          releases = json.loads(os.environ['TRACKED_RELEASES'])
+          commits  = json.loads(os.environ['TRACKED_COMMITS'])
+          tracked  = {**releases, **commits}
           current  = json.loads(open('current_tags.json').read()) if os.path.exists('current_tags.json') else {}
           changed  = json.loads(open('changed_tags.json').read()) if os.path.exists('changed_tags.json') else {}
           for name, repo in tracked.items():
-              tag = current.get(name, '(error)')
+              val   = current.get(name, '(error)')
               badge = ' 🆕' if name in changed else ''
-              url = f'https://github.com/{repo}/releases/tag/{tag}' if tag != '(error)' else f'https://github.com/{repo}'
-              print(f'| {name}{badge} | [{repo}](https://github.com/{repo}) | [\`{tag}\`]({url}) |')
+              kind  = changed.get(name, {}).get('kind', 'release' if name in releases else 'commit')
+              if val == '(error)':
+                  url = f'https://github.com/{repo}'
+              elif kind == 'commit':
+                  url = f'https://github.com/{repo}/commit/{val}'
+              else:
+                  url = f'https://github.com/{repo}/releases/tag/{val}'
+              label = val if kind == 'release' else f'{val} (commit)'
+              print(f'| {name}{badge} | [{repo}](https://github.com/{repo}) | [\`{label}\`]({url}) |')
           "
           } >> "$GITHUB_STEP_SUMMARY"
