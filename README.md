@@ -30,7 +30,7 @@ After all components are processed, the script generates two config files:
 - `exosphere.ini` at the SD root, with PRODINFO blanking enabled.
 - `bootloader/hekate_ipl.ini`, containing a single `CFW (EMUMMC)` boot entry. The `kernel=` line points at the mesosphere binary described above; the `kip1=` line points at `atmosphere/kips/hoc.kip`, which is shipped by **Horizon-OC**.
 
-Hekate payload files are copied to four locations for compatibility with different bootloader/payload-launcher conventions: `hekate.bin` and `payload.bin` at the SD root, `atmosphere/reboot_to_payload.bin`, and `bootloader/payloads/hekate.bin`.
+Hekate and Lockpick_RCM payload files are copied to `bootloader/payloads/`.
 
 `sys-patch` is included so signature patches are applied automatically at boot.
 
@@ -51,7 +51,7 @@ Fetched from each repo's latest GitHub release unless noted otherwise.
 | EdiZon-Overlay | [proferabg/EdiZon-Overlay](https://github.com/proferabg/EdiZon-Overlay) | |
 | Horizon-OC | [Horizon-OC/Horizon-OC](https://github.com/Horizon-OC/Horizon-OC) | Ships `hoc.kip`, referenced in `hekate_ipl.ini` |
 | QuickNTP | [ppkantorski/QuickNTP](https://github.com/ppkantorski/QuickNTP) | Fork |
-| sys-patch | [borntohonk/sys-patch](https://github.com/borntohonk/sys-patch) | |
+| sys-patch | [impeeza/sys-patch](https://github.com/impeeza/sys-patch) | |
 | ovl-sysmodules | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) | |
 | FPSLocker | [ppkantorski/FPSLocker](https://github.com/ppkantorski/FPSLocker) | Fork |
 | Memory-Kit | [ppkantorski/Memory-Kit](https://github.com/ppkantorski/Memory-Kit) | Mesosphere binary fetched separately from repo source tree |
@@ -64,6 +64,7 @@ Fetched from each repo's latest GitHub release unless noted otherwise.
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
 | sphaira | [ITotalJustice/sphaira](https://github.com/ITotalJustice/sphaira) | Homebrew menu replacement |
+| Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | NX Key payload extraction |
 
 ## Running it locally
 
