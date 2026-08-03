@@ -131,4 +131,4 @@ The baseline is a single JSON file on an orphan branch, never merged into `main`
 
 - Repos are tracked by GitHub release tag (or commit SHA where there's no release). A repo retagging an existing release without publishing a new one won't be detected as changed.
 - No signature or checksum verification is performed on downloaded assets beyond what GitHub's own release infrastructure provides. This script trusts that the repos listed above are what they claim to be.
-- Component selection and exclusions reflect one person's personal preference, while this works for me, maybe it will not for you.
+- Component selection reflect one person's personal preference, while this works for me, it maybe will not for you.
