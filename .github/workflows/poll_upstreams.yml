@@ -80,7 +80,7 @@ env:
       "EdiZon-Overlay":          "proferabg/EdiZon-Overlay",
       "Horizon-OC":              "Horizon-OC/Horizon-OC",
       "QuickNTP":                "ppkantorski/QuickNTP",
-      "sys-patch":               "borntohonk/sys-patch",
+      "sys-patch":               "impeeza/sys-patch",
       "ovl-sysmodules":          "ppkantorski/ovl-sysmodules",
       "FPSLocker":               "ppkantorski/FPSLocker",
       "Memory-Kit":              "ppkantorski/Memory-Kit",
@@ -92,7 +92,8 @@ env:
       "Quick-Reboot":            "eradicatinglove/Quick-Reboot",
       "emuiibo":                 "XorTroll/emuiibo",
       "Status-Monitor-Overlay":  "ppkantorski/Status-Monitor-Overlay",
-      "sphaira":                 "ITotalJustice/sphaira"
+      "sphaira":                 "ITotalJustice/sphaira",
+      "Lockpick_RCMaster":       "THZoria/Lockpick_RCMaster"
     }
 
   # Repos with no GitHub Releases — tracked by latest commit SHA on master.
