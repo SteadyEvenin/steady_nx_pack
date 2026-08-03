@@ -64,7 +64,7 @@ Fetched from each repo's latest GitHub release unless noted otherwise.
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
 | sphaira | [ITotalJustice/sphaira](https://github.com/ITotalJustice/sphaira) | Homebrew menu replacement |
-| Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | NX Key payload extraction |
+| Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | Payload for dumping console keys |
 
 ## Running it locally
 
