@@ -7,12 +7,12 @@
 #   • Atmosphère         • Hekate              • DBI
 #   • disable_remap_dlg  • MissionControl       • SaltyNX
 #   • theme-patches      • nx-ovlloader         • EdiZon-Overlay
-#   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch
+#   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch (impeeza)
 #   • ovl-sysmodules     • FPSLocker (ppkant.)  • Memory-Kit
 #   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
 #   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
 #   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
-#   • Status-Monitor-Overlay • sphaira
+#   • Status-Monitor-Overlay • sphaira          • Lockpick_RCMaster
 #
 #  Generated config files:
 #   • exosphere.ini              (atmosphere/ — PRODINFO blanking)
@@ -314,7 +314,7 @@ process "Horizon-OC" "Horizon-OC/Horizon-OC" "dist\.zip" "unzip_root"
 process "QuickNTP" "ppkantorski/QuickNTP" "QuickNTP.ovl" "copy_to" "switch/.overlays"
 
 # 12. sys-patch
-process "sys-patch" "borntohonk/sys-patch" "sys-patch-" "unzip_root"
+process "sys-patch" "impeeza/sys-patch" "sys-patch-" "unzip_root"
 
 # 13. ovl-sysmodules (ppkantorski)
 process "ovl-sysmodules" "ppkantorski/ovl-sysmodules" "ovlSysmodules.ovl" "copy_to" "switch/.overlays"
@@ -454,6 +454,11 @@ process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Mo
 # Features: app installer (NSP/XCI/NSZ), FTP/MTP server, file browser,
 # theme support, appstore integration.
 process "sphaira" "ITotalJustice/sphaira" "sphaira.zip" "unzip_root"
+
+# 26. Lockpick_RCMaster
+# Payload for dumping console keys.  The release ships both a zip and a
+# standalone .bin — we fetch the .bin directly into bootloader/payloads/.
+process "Lockpick_RCMaster" "THZoria/Lockpick_RCMaster" "Lockpick_RCM.bin" "copy_to" "bootloader/payloads"
 
 # =============================================================================
 #  GENERATE CONFIGURATION FILES
