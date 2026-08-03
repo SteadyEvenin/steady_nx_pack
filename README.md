@@ -103,7 +103,7 @@ SD_Card_Output/
 └── CHANGELOG.txt
 ```
 
-Copy the contents of `SD_Card_Output/` to the root of a FAT32/exFAT-formatted SD card.
+Copy the contents of `SD_Card_Output/` to the root of a exFAT formatted SD card.
 
 ## GitHub Actions
 
