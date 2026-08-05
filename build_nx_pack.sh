@@ -20,36 +20,30 @@
 #     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
 #     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
 #
+#  ⚠  HOC-Toolkit (ppkantorski) is intentionally NOT included.
+#     hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
+#
 #  Repo assets copied:
 #   • bootloader/res/emummc.bmp             (from assets/ in this repo)
 #   • atmosphere/mesosphere_1.85MB_1.11.bin (from ppkantorski/Memory-Kit repo tree)
 #
-#  Requirements (all standard on Ubuntu/Debian):
+#  Requirements (all standard on ubuntu-latest):
 #    curl  unzip  python3
 #
-#  Usage:
-#    chmod +x build_nx_pack.sh
-#    ./build_nx_pack.sh [OUTPUT_DIR]
-#
-#  Optional env vars:
-#    GITHUB_TOKEN   – raises GH API rate-limit from 60 to 5000 req/hr
+#  Env vars:
+#    GITHUB_TOKEN   – raises GH API rate-limit from 60 to 5000 req/hr (set automatically in Actions)
 #    OUTPUT_DIR     – override default output path (./SD_Card_Output)
 #    KEEP_DOWNLOADS – set to 1 to keep the _downloads/ cache between runs
 # =============================================================================
 
 set -euo pipefail
-
-# ── FIX: Ensure wildcards (*) match hidden files/folders (e.g., .overlays) ──
 shopt -s dotglob
 
-# ── Colour helpers ─────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-info()    { echo -e "${CYAN}[INFO]${NC}  $*"; }
-ok()      { echo -e "${GREEN}[ OK ]${NC}  $*"; }
-warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-die()     { echo -e "${RED}[FAIL]${NC}  $*" >&2; exit 1; }
-section() { echo -e "\n${BOLD}${CYAN}── $* ──────────────────────────────────────────${NC}"; }
+# ── Logging — GitHub Actions workflow commands ─────────────────────────────────
+info()  { echo "::notice::$*"; }
+warn()  { echo "::warning::$*"; }
+die()   { echo "::error::$*" >&2; exit 1; }
+log()   { echo "$*"; }
 
 # ── Dependency check ───────────────────────────────────────────────────────────
 for cmd in curl unzip python3; do
@@ -74,7 +68,7 @@ BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M UTC')
 GH_HEADERS=(-H "User-Agent: build_nx_pack/1.0" -H "Accept: text/html")
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     GH_HEADERS+=(-H "Authorization: Bearer $GITHUB_TOKEN")
-    info "GitHub token set – using authenticated requests."
+    info "GitHub token set — using authenticated requests."
 else
     warn "No GITHUB_TOKEN set. Limited to 60 API requests/hour."
 fi
@@ -108,25 +102,25 @@ for l in links:
 download_file() {
     local url="$1" dest="$2"
     if [[ -f "$dest" ]] && [[ $(wc -c < "$dest") -gt 512 ]]; then
-        info "   Cached: $(basename "$dest")"
+        log "  cached: $(basename "$dest")"
         return 0
     fi
-    info "   Downloading: $(basename "$dest")"
+    log "  downloading: $(basename "$dest")"
     local tag_safe_url="${url//+/%2B}"
     if ! curl -sL --max-time 120 --retry 3 \
               -H "User-Agent: build_nx_pack/1.0" \
               "$tag_safe_url" -o "$dest"; then
-        warn "   Download failed: $url"
+        warn "Download failed: $url"
         return 1
     fi
     local size
     size=$(wc -c < "$dest")
     if (( size < 512 )); then
-        warn "   Suspiciously small ($size bytes) – may be an error page"
+        warn "Suspiciously small file ($size bytes) — may be an error page: $url"
         cat "$dest" >> "$LOG_FILE"
         return 1
     fi
-    ok "   $(basename "$dest") ($size bytes)"
+    log "  $(basename "$dest") (${size} bytes)"
 }
 
 # ── Main processing function ────────────────────────────────────────────────────
@@ -135,7 +129,8 @@ process() {
     shift 4
     local extra_args=("$@")
 
-    echo -e "\n${BOLD}▸ $label${NC}  (github.com/$repo)"
+    log ""
+    log "[ $label ] github.com/$repo"
 
     local url="" filename="" version=""
 
@@ -148,21 +143,21 @@ process() {
         local tag
         tag=$(get_latest_tag "$repo")
         if [[ -z "$tag" ]]; then
-            warn "   Could not resolve latest tag for $repo"
+            warn "$label: could not resolve latest tag for $repo"
             FAILED+=("$label")
             CHANGELOG_ENTRIES+=("$label|$repo|unknown|n/a|FAILED – could not resolve tag")
             return
         fi
         version="$tag"
-        info "   Tag: $tag"
+        log "  tag: $tag"
 
         local assets
         assets=$(get_release_assets "$repo" "$tag")
-        
+
         url=$(echo "$assets" | grep -i "$pattern" | head -1 || true)
         if [[ -z "$url" ]]; then
-            warn "   No asset matching '$pattern' found in release $tag"
-            echo "   Available:" ; echo "$assets" | sed 's/^/    /'
+            warn "$label: no asset matching '$pattern' in release $tag"
+            echo "$assets" | sed 's/^/  available: /' >> "$LOG_FILE"
             FAILED+=("$label")
             CHANGELOG_ENTRIES+=("$label|$repo|$tag|n/a|FAILED – asset not matched")
             return
@@ -171,9 +166,9 @@ process() {
         filename="${filename//%2B/+}"
     fi
 
-    # ── Allow caller to force a unique cache filename to avoid collisions ──────
-    # Pass PROCESS_FILENAME_OVERRIDE=name before calling process() to rename the
-    # downloaded file in _downloads/.  Cleared automatically after each call.
+    # Allow caller to force a unique cache filename to avoid collisions between
+    # repos that ship assets with the same name (e.g. sdout.zip).
+    # Set PROCESS_FILENAME_OVERRIDE before calling process(); cleared automatically.
     if [[ -n "${PROCESS_FILENAME_OVERRIDE:-}" ]]; then
         filename="$PROCESS_FILENAME_OVERRIDE"
         PROCESS_FILENAME_OVERRIDE=""
@@ -188,30 +183,27 @@ process() {
 
     case "$action" in
         unzip_root)
-            info "   Extracting → SD root"
+            log "  extracting to SD root"
             unzip -oq "$dest" -d "$OUTPUT_DIR" 2>>"$LOG_FILE"
             ;;
-
         unzip_to)
             local target_path="${extra_args[0]}"
             mkdir -p "$OUTPUT_DIR/$target_path"
-            info "   Extracting → $target_path/"
+            log "  extracting to $target_path/"
             unzip -oq "$dest" -d "$OUTPUT_DIR/$target_path" 2>>"$LOG_FILE"
             ;;
-
         copy_to)
             local target_path="${extra_args[0]}"
             local target_name="${extra_args[1]:-$(basename "$dest")}"
             mkdir -p "$OUTPUT_DIR/$target_path"
-            info "   Copying → $target_path/$target_name"
+            log "  copying to $target_path/$target_name"
             cp "$dest" "$OUTPUT_DIR/$target_path/$target_name"
             ;;
-
         zip_subfolder)
             local sub_path="${extra_args[0]}"
             local dest_path="${extra_args[1]}"
             mkdir -p "$OUTPUT_DIR/$dest_path"
-            info "   Extracting subfolder '$sub_path' → $dest_path/"
+            log "  extracting subfolder '$sub_path' to $dest_path/"
             local entries
             entries=$(unzip -Z1 "$dest" 2>/dev/null | grep "^$sub_path" || true)
             while IFS= read -r entry; do
@@ -220,24 +212,23 @@ process() {
                 unzip -oqj "$dest" "$entry" -d "$OUTPUT_DIR/$dest_path" 2>>"$LOG_FILE"
             done <<< "$entries"
             ;;
-
         *)
-            warn "   Unknown action: $action"
+            warn "$label: unknown action '$action'"
             FAILED+=("$label")
             CHANGELOG_ENTRIES+=("$label|$repo|$version|$filename|FAILED – unknown action")
             return
             ;;
     esac
 
-    ok "   Done."
+    log "  done."
     CHANGELOG_ENTRIES+=("$label|$repo|$version|$filename|OK")
     (( DONE++ )) || true
 }
 
 # =============================================================================
-#  COMPONENT DOWNLOAD & PLACEMENT STEPS
+#  COMPONENT DOWNLOAD & PLACEMENT
 # =============================================================================
-section "Downloading & extracting components"
+log "== Downloading components =="
 
 # 1. Atmosphère
 process "Atmosphère" "atmosphere-nx/atmosphere" "atmosphere-" "unzip_root"
@@ -258,7 +249,7 @@ process "Hekate" "ctcaer/hekate" "hekate_ctcaer.*_Nyx_" "unzip_root"
             cp "$bin_file" "$OUTPUT_DIR/payload.bin"
             cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
             cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
-            info "   Hekate payload → mapped to root (hekate.bin, payload.bin), atmosphere, and payloads folder."
+            log "  Hekate payload mapped: hekate.bin, payload.bin, atmosphere/reboot_to_payload.bin, bootloader/payloads/hekate.bin"
         fi
     fi
 } 2>>"$LOG_FILE" || warn "Could not place Hekate .bin payload"
@@ -276,7 +267,7 @@ process "DBI" "rashevskyv/dbi" "DBI.nro" "copy_to" "switch/DBI"
             download_file "$cfg_url" "$cfg_file"
             mkdir -p "$OUTPUT_DIR/switch/DBI"
             cp "$cfg_file" "$OUTPUT_DIR/switch/DBI/dbi.config"
-            info "   dbi.config → switch/DBI/dbi.config"
+            log "  dbi.config → switch/DBI/dbi.config"
         fi
     fi
 } 2>>"$LOG_FILE" || warn "Could not place dbi.config"
@@ -294,11 +285,8 @@ process "SaltyNX" "masagrator/SaltyNX" "SaltyNX\.zip" "unzip_root"
 process "theme-patches" "exelix11/theme-patches" "SOURCE:master" "zip_subfolder" "theme-patches-master/systemPatches" "themes/systemPatches"
 
 # 8. nx-ovlloader
-# Using ppkantorski's fork (v2.x), not the original WerWolv/nx-ovlloader (last: v1.0.7, unmaintained).
-# ppkantorski's fork is the active upstream for the Ultrahand ecosystem: dynamic heap sizing,
-# HOS-version-aware defaults, live heap change detection, and nx-ovlreloader support.
-# emuiibo's README references WerWolv's original because it predates this fork becoming standard.
-# Both ship nx-ovlloader.zip with the same atmosphere/contents/420000000007E51A/ layout.
+# Using ppkantorski's fork (v2.x) — WerWolv/nx-ovlloader is unmaintained (last: v1.0.7).
+# Same atmosphere/contents/420000000007E51A/ layout; active upstream for the Ultrahand ecosystem.
 process "nx-ovlloader" "ppkantorski/nx-ovlloader" "nx-ovlloader.zip" "unzip_root"
 
 # 9. EdiZon-Overlay
@@ -308,38 +296,35 @@ process "EdiZon-Overlay" "proferabg/EdiZon-Overlay" "ovlEdiZon.ovl" "copy_to" "s
 process "Horizon-OC" "Horizon-OC/Horizon-OC" "dist\.zip" "unzip_root"
 
 # 11. QuickNTP (ppkantorski fork)
-# Replaces nedex/QuickNTP (which shipped sdout.zip requiring a filename override to avoid
-# collision with Ultrahand's sdout.zip).  ppkantorski's fork is a libultrahand rebuild
-# shipping a standalone QuickNTP.ovl — cleaner, no collision risk, actively maintained.
+# Replaces nedex/QuickNTP (sdout.zip). Ships a standalone QuickNTP.ovl — no collision risk.
 process "QuickNTP" "ppkantorski/QuickNTP" "QuickNTP.ovl" "copy_to" "switch/.overlays"
 
 # 12. sys-patch
 process "sys-patch" "impeeza/sys-patch" "sys-patch-" "unzip_root"
 
-# 13. ovl-sysmodules (ppkantorski)
+# 13. ovl-sysmodules
 process "ovl-sysmodules" "ppkantorski/ovl-sysmodules" "ovlSysmodules.ovl" "copy_to" "switch/.overlays"
 
 # 14. FPSLocker (ppkantorski fork)
-process "FPSLocker (ppkantorski)" "ppkantorski/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
+process "FPSLocker" "ppkantorski/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
 
 # 15. Memory-Kit
-# Memory.Kit.zip extracts the Ultrahand package to switch/.packages/Memory Kit/.
-# The mesosphere kernel binaries live only in the repo tree (not in the release zip)
-# and must be fetched from raw.githubusercontent.com.  mesosphere_1.85MB_1.11.bin
-# is placed at atmosphere/ so Hekate can find it via the kernel= entry in hekate_ipl.ini.
+# Release zip goes to switch/.packages/Memory Kit/. The mesosphere binary is not in
+# the zip — fetched separately from the repo tree below.
 process "Memory-Kit" "ppkantorski/Memory-Kit" "Memory.Kit.zip" "unzip_root"
 
-echo -e "\n${BOLD}▸ Memory-Kit mesosphere kernel${NC}  (repo tree → atmosphere/)"
+log ""
+log "[ Memory-Kit mesosphere kernel ] repo tree → atmosphere/"
 _MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
 _MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
 mkdir -p "$OUTPUT_DIR/atmosphere"
 if download_file "$_MESO_URL" "$_MESO_DEST" 2>>"$LOG_FILE"; then
     cp "$_MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
-    ok "   mesosphere_1.85MB_1.11.bin → atmosphere/"
+    log "  mesosphere_1.85MB_1.11.bin → atmosphere/"
     CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|OK")
     (( DONE++ )) || true
 else
-    warn "   Failed to download mesosphere_1.85MB_1.11.bin — hekate_ipl.ini kernel= entry will be broken."
+    warn "Failed to download mesosphere_1.85MB_1.11.bin — hekate_ipl.ini kernel= entry will be broken"
     FAILED+=("Memory-Kit mesosphere")
     CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|FAILED – download error")
 fi
@@ -348,124 +333,101 @@ fi
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
 # 17. Ultrahand-Overlay
-# sdout.zip previously collided with nedex/QuickNTP's sdout.zip, requiring a filename
-# override.  QuickNTP is now ppkantorski/QuickNTP (step 11) which ships a standalone
-# .ovl — no collision risk remains.  PROCESS_FILENAME_OVERRIDE kept for safety in case
-# another repo ever ships sdout.zip in future.
+# PROCESS_FILENAME_OVERRIDE avoids any future sdout.zip collision in _downloads/.
 PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
 
-# ── Ultrahand companion assets: ovlmenu.ovl + lang.zip ───────────────────────
-# These are separate release assets alongside sdout.zip.  They run in the main
-# shell (not a subshell) so CHANGELOG_ENTRIES is updated correctly.
-echo -e "\n${BOLD}▸ Ultrahand-Overlay companion assets${NC}  (ovlmenu.ovl + lang.zip)"
+# Ultrahand companion assets: ovlmenu.ovl + lang.zip
+# Fetched in the main shell (not a subshell) so CHANGELOG_ENTRIES is updated correctly.
+log ""
+log "[ Ultrahand companion assets ] ovlmenu.ovl + lang.zip"
 
 _uh_tag=$(get_latest_tag "ppkantorski/Ultrahand-Overlay" 2>>"$LOG_FILE" || true)
 
 if [[ -z "$_uh_tag" ]]; then
-    warn "   Could not resolve Ultrahand tag for companion assets."
+    warn "Ultrahand: could not resolve tag for companion assets"
     FAILED+=("Ultrahand ovlmenu.ovl")
     CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|unknown|n/a|FAILED – could not resolve tag")
 else
     _uh_assets=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$_uh_tag" 2>>"$LOG_FILE" || true)
 
-    # ovlmenu.ovl — the overlay menu binary; lands at switch/.overlays/ovlmenu.ovl
     _ovl_url=$(echo "$_uh_assets" | grep "ovlmenu\.ovl" | head -1 || true)
     if [[ -n "$_ovl_url" ]]; then
         if download_file "$_ovl_url" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/switch/.overlays"
             cp "$DL_DIR/ovlmenu.ovl" "$OUTPUT_DIR/switch/.overlays/ovlmenu.ovl"
-            ok "   ovlmenu.ovl → switch/.overlays/ovlmenu.ovl"
+            log "  ovlmenu.ovl → switch/.overlays/ovlmenu.ovl"
             CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|OK")
             (( DONE++ )) || true
         else
-            warn "   Failed to download ovlmenu.ovl"
+            warn "Ultrahand: failed to download ovlmenu.ovl"
             FAILED+=("Ultrahand ovlmenu.ovl")
             CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|FAILED – download error")
         fi
     else
-        warn "   ovlmenu.ovl not found in release assets for $_uh_tag"
+        warn "Ultrahand: ovlmenu.ovl not found in release assets for $_uh_tag"
         FAILED+=("Ultrahand ovlmenu.ovl")
         CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|n/a|FAILED – asset not matched")
     fi
 
-    # lang.zip — UI language files; optional, non-fatal if absent
     _lang_url=$(echo "$_uh_assets" | grep "lang\.zip" | head -1 || true)
     if [[ -n "$_lang_url" ]]; then
         if download_file "$_lang_url" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/config/ultrahand/lang"
-            unzip -oq "$DL_DIR/ultrahand_lang.zip" \
-                  -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
-            ok "   lang.zip → config/ultrahand/lang/"
+            unzip -oq "$DL_DIR/ultrahand_lang.zip" -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
+            log "  lang.zip → config/ultrahand/lang/"
             CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|OK")
             (( DONE++ )) || true
         else
-            warn "   Failed to download lang.zip (non-fatal)"
+            warn "Ultrahand: failed to download lang.zip (non-fatal)"
             CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|FAILED – download error")
         fi
     else
-        info "   lang.zip not present in this release — skipping."
+        log "  lang.zip not present in this release — skipping"
     fi
 fi
 
-# 18. ReverseNX-RT (ppkantorski fork of masagrator/ReverseNX-RT)
-# Real-time handheld/docked mode switcher overlay.  Requires SaltyNX (step 6).
-# Asset is named ReverseNX-RT-ovl.ovl — renamed to ReverseNX-RT.ovl on copy
-# to match the conventional .ovl naming used by all other overlays in this pack.
+# 18. ReverseNX-RT
+# Asset named ReverseNX-RT-ovl.ovl — renamed on copy to match overlay naming convention.
+# Requires SaltyNX (step 6).
 process "ReverseNX-RT" "ppkantorski/ReverseNX-RT" "ReverseNX-RT-ovl\.ovl" "copy_to" "switch/.overlays" "ReverseNX-RT.ovl"
 
 # 19. DNS-MITM_Manager
-# Tesla/Ultrahand overlay for managing Atmosphere's DNS MITM hosts file entries
-# without rebooting.  Zip ships the switch/.overlays/ path internally → unzip_root.
+# Tesla/Ultrahand overlay for toggling Atmosphere DNS MITM hosts entries.
 process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "unzip_root"
 
 # 20. ldn_mitm
-# LAN-play sysmodule: replaces the system ldn service with UDP LAN emulation.
-# Zip ships full SD layout per its Makefile:
-#   atmosphere/contents/4200000000000010/  (exefs.nsp + toolbox.json + flags/boot2.flag)
-#   switch/ldnmitm_config/ldnmitm_config.nro
-#   switch/.overlays/ldnmitm_config.ovl
+# LAN-play sysmodule. Zip ships full SD layout:
+#   atmosphere/contents/4200000000000010/ + switch/ldnmitm_config/ + switch/.overlays/
 process "ldn_mitm" "spacemeowx2/ldn_mitm" "ldn_mitm_" "unzip_root"
 
-# 21 & 22. Quick-Reboot (.nro hbmenu app + .ovl Ultrahand overlay)
-# Two separate assets from the same release — fetched with two process() calls.
-# .nro → switch/ (standard hbmenu app location)
-# .ovl → switch/.overlays/ (Tesla/Ultrahand overlay)
-process "Quick-Reboot (app)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.nro" "copy_to" "switch"
+# 21 & 22. Quick-Reboot (.nro app + .ovl overlay — two assets from the same release)
+process "Quick-Reboot (app)"     "eradicatinglove/Quick-Reboot" "Quick-Reboot\.nro" "copy_to" "switch"
 process "Quick-Reboot (overlay)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.ovl" "copy_to" "switch/.overlays"
 
 # 23. emuiibo
-# emuiibo.zip is a root-extract archive.  It places:
-#   atmosphere/contents/0100000000000352/exefs.nsp  — sysmodule binary
-#   atmosphere/contents/0100000000000352/flags/      — boot2.flag (auto-start)
-#   switch/.overlays/emuiibo.ovl                    — Tesla/Ultrahand overlay
-#   emuiibo/overlay/lang/                           — overlay UI translations
-# This matches the layout specified in the emuiibo README exactly.
-# ovlmenu.ovl (Tesla-Menu equivalent) is already provided by Ultrahand-Overlay (step 18).
-# nx-ovlloader is already provided by step 8 — no duplication needed.
+# Zip ships: atmosphere/contents/0100000000000352/ + switch/.overlays/emuiibo.ovl + lang/
+# ovlmenu.ovl and nx-ovlloader already provided by steps 17 and 8 respectively.
 process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 
 # 24. Status-Monitor-Overlay
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
 
 # 25. sphaira
-# Homebrew menu replacement.  sphaira.zip extracts to switch/sphaira/sphaira.nro
-# (its own subfolder, consistent with hbmenu conventions).
-# Features: app installer (NSP/XCI/NSZ), FTP/MTP server, file browser,
-# theme support, appstore integration.
+# Zip extracts to switch/sphaira/sphaira.nro (homebrew menu replacement).
 process "sphaira" "ITotalJustice/sphaira" "sphaira.zip" "unzip_root"
 
 # 26. Lockpick_RCMaster
-# Payload for dumping console keys.  The release ships both a zip and a
-# standalone .bin — we fetch the .bin directly into bootloader/payloads/.
+# Standalone .bin payload — fetched directly, placed in bootloader/payloads/.
 process "Lockpick_RCMaster" "THZoria/Lockpick_RCMaster" "Lockpick_RCM.bin" "copy_to" "bootloader/payloads"
 
 # =============================================================================
 #  GENERATE CONFIGURATION FILES
 # =============================================================================
-section "Generating system configurations"
+log ""
+log "== Generating config files =="
 
-info "Writing exosphere.ini template to root..."
+log "writing exosphere.ini..."
 cat << 'EOF' > "$OUTPUT_DIR/exosphere.ini"
 [exosphere]
 debugmode=1
@@ -480,10 +442,9 @@ log_port=0
 log_baud_rate=115200
 log_inverted=0
 EOF
-ok "exosphere.ini written with PRODINFO blanking active."
+log "exosphere.ini written."
 
-# ── hekate_ipl.ini ──────────────────────────────────────────────────────────
-info "Writing bootloader/hekate_ipl.ini..."
+log "writing bootloader/hekate_ipl.ini..."
 mkdir -p "$OUTPUT_DIR/bootloader"
 cat << 'EOF' > "$OUTPUT_DIR/bootloader/hekate_ipl.ini"
 [config]
@@ -506,13 +467,9 @@ secmon=atmosphere/exosphere.bin
 emummcforce=1
 icon=bootloader/res/emummc.bmp
 EOF
-ok "bootloader/hekate_ipl.ini written."
+log "bootloader/hekate_ipl.ini written."
 
-# ── bootloader/res/emummc.bmp ───────────────────────────────────────────────
-# Downloaded from this repository's own assets/ folder (not a third-party release).
-# GITHUB_REPOSITORY is set automatically in GitHub Actions; fall back to the
-# known repo slug when running locally.
-info "Fetching emummc.bmp from repo assets..."
+log "fetching emummc.bmp from repo assets..."
 _REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
 _BMP_URL="https://raw.githubusercontent.com/${_REPO_SLUG}/main/assets/emummc.bmp"
 mkdir -p "$OUTPUT_DIR/bootloader/res"
@@ -521,25 +478,25 @@ if curl -sL --max-time 30 --retry 3 \
         ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
         "$_BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
    && [[ $(wc -c < "$OUTPUT_DIR/bootloader/res/emummc.bmp") -gt 512 ]]; then
-    ok "bootloader/res/emummc.bmp placed."
+    log "bootloader/res/emummc.bmp placed."
 else
     warn "Could not download emummc.bmp from $_BMP_URL — placeholder omitted."
     rm -f "$OUTPUT_DIR/bootloader/res/emummc.bmp"
 fi
 
 # =============================================================================
-#  POST-BUILD: ensure essential directories exist
+#  POST-BUILD: directory structure
 # =============================================================================
-section "Finalising directory structure"
+log ""
+log "== Finalising directory structure =="
 
-# ── FIXED: Automated post-build consolidation of nested 'SdOut' directories ───
+# Merge any nested SdOut/ folder left by sdout.zip extractions
 for target_sdout in "$OUTPUT_DIR/SdOut" "$OUTPUT_DIR/sdout"; do
     if [[ -d "$target_sdout" ]]; then
-        info "Merging nested $(basename "$target_sdout") contents into standard SD layout..."
-        # Due to 'shopt -s dotglob' initialized above, this catches all hidden dotfiles flawlessly
+        log "merging nested $(basename "$target_sdout") into SD root..."
         find "$target_sdout" -mindepth 1 -maxdepth 1 -exec cp -r {} "$OUTPUT_DIR/" \; 2>>"$LOG_FILE"
         rm -rf "$target_sdout"
-        ok "Redundant $(basename "$target_sdout") folder successfully consolidated."
+        log "$(basename "$target_sdout") consolidated."
     fi
 done
 
@@ -558,12 +515,13 @@ declare -a ENSURE_DIRS=(
 for d in "${ENSURE_DIRS[@]}"; do
     mkdir -p "$OUTPUT_DIR/$d"
 done
-ok "Directory tree verified."
+log "directory tree verified."
 
 # =============================================================================
 #  CHANGELOG OUTPUT
 # =============================================================================
-section "Writing changelog"
+log ""
+log "== Writing changelog =="
 
 CHANGELOG_MD="$OUTPUT_DIR/CHANGELOG.md"
 CHANGELOG_TXT="$OUTPUT_DIR/CHANGELOG.txt"
@@ -592,9 +550,9 @@ for entry in "${CHANGELOG_ENTRIES[@]}"; do
     IFS='|' read -r lbl repo ver asset status <<< "$entry"
     gh_url="https://github.com/$repo"
     if [[ "$status" == "OK" ]]; then
-        status_md="✅ OK"
+        status_md="OK"
     else
-        status_md="❌ ${status#FAILED – }"
+        status_md="FAILED: ${status#FAILED – }"
     fi
     echo "| **$lbl** | \`$ver\` | \`$asset\` | [$repo]($gh_url) | $status_md |"
 done
@@ -638,8 +596,7 @@ for line in lines:
 
 echo '```'
 } > "$CHANGELOG_MD"
-
-ok "   CHANGELOG.md written."
+log "CHANGELOG.md written."
 
 {
 echo "CFW Pack Changelog"
@@ -658,18 +615,15 @@ echo "$TXT_SEP"
 
 for entry in "${CHANGELOG_ENTRIES[@]}"; do
     IFS='|' read -r lbl repo ver asset status <<< "$entry"
-    if [[ "$status" == "OK" ]]; then
-        status_short="OK"
-    else
-        status_short="FAILED"
-    fi
+    status_short="OK"
+    [[ "$status" != "OK" ]] && status_short="FAILED"
     [[ ${#lbl}   -gt $W_LABEL   ]] && lbl="${lbl:0:$((W_LABEL-1))}…"
     [[ ${#ver}   -gt $W_VERSION ]] && ver="${ver:0:$((W_VERSION-1))}…"
     [[ ${#asset} -gt $W_ASSET   ]] && asset="${asset:0:$((W_ASSET-1))}…"
     printf "| %s | %s | %s | %s |\n" \
-        "$(pad "$lbl"         $W_LABEL)" \
-        "$(pad "$ver"         $W_VERSION)" \
-        "$(pad "$asset"       $W_ASSET)" \
+        "$(pad "$lbl"          $W_LABEL)" \
+        "$(pad "$ver"          $W_VERSION)" \
+        "$(pad "$asset"        $W_ASSET)" \
         "$(pad "$status_short" $W_STATUS)"
 done
 
@@ -684,38 +638,35 @@ if [[ ${#FAILED[@]} -gt 0 ]]; then
     done
 fi
 } > "$CHANGELOG_TXT"
+log "CHANGELOG.txt written."
 
-ok "   CHANGELOG.txt written."
-section "Summary"
-echo -e "   ${BOLD}Output:${NC}    $OUTPUT_DIR"
-echo -e "   ${GREEN}Succeeded:${NC} $DONE component(s)"
+# =============================================================================
+#  SUMMARY
+# =============================================================================
+log ""
+log "== Summary =="
+log "Output:    $OUTPUT_DIR"
+log "Succeeded: $DONE component(s)"
 
 if [[ ${#FAILED[@]} -gt 0 ]]; then
-    echo -e "   ${RED}Failed:${NC}    ${#FAILED[@]} component(s):"
+    log "Failed:    ${#FAILED[@]} component(s):"
     for f in "${FAILED[@]}"; do
-        echo -e "    ${RED}•${NC} $f"
+        warn "FAILED: $f"
     done
-    echo -e "   See $LOG_FILE for details."
+    log "See $LOG_FILE for details."
 else
-    echo -e "   ${GREEN}All components processed successfully.${NC}"
+    log "All components processed successfully."
 fi
 
-echo
-echo -e "${BOLD}Final SD card layout:${NC}"
+log ""
+log "Directory layout:"
 find "$OUTPUT_DIR" -maxdepth 3 -type d | sort | sed "s|$OUTPUT_DIR|  SD:|"
 
-echo
-echo -e "${BOLD}Changelog files:${NC}"
-echo "  $CHANGELOG_MD"
-echo "  $CHANGELOG_TXT"
-
-echo
-echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Copy everything inside $OUTPUT_DIR/ to the root of your FAT32/exFAT SD card."
-echo "  2. Boot via Hekate payload — bootloader/hekate_ipl.ini is already configured."
-echo "  3. Select 'CFW (EMUMMC)' from the Hekate boot menu."
+log ""
+log "Changelog: $CHANGELOG_MD"
+log "Changelog: $CHANGELOG_TXT"
 
 if [[ "${KEEP_DOWNLOADS:-0}" != "1" ]]; then
     rm -rf "$DL_DIR"
-    info "Download cache cleaned. Set KEEP_DOWNLOADS=1 to preserve it."
+    log "Download cache cleared. Set KEEP_DOWNLOADS=1 to preserve."
 fi
