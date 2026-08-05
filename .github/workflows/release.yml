@@ -71,7 +71,7 @@ jobs:
   build:
     name: Build SD Card Pack
     runs-on: ubuntu-latest
-    # 24 process() steps + 2 Ultrahand companion assets + 1 mesosphere fetch = 27 tracked entries
+    # 26 process() calls + 2 Ultrahand companion assets + 1 mesosphere fetch = 29 tracked entries
     # Each download: --max-time 120 --retry 3.  30 min is a safe ceiling.
     timeout-minutes: 30
 
@@ -175,16 +175,15 @@ jobs:
             TRIGGER="Manual dispatch"
           fi
 
-          # Build the banner (always shown — makes every release self-describing)
+          # Build the trigger banner (always shown — makes every release self-describing)
           {
-            echo "## 🔄 What triggered this build"
+            echo "## What triggered this build"
             echo ""
             echo "**Trigger:** ${TRIGGER}"
             echo ""
             if [[ -n "$CHANGED_COMPONENTS" ]]; then
               echo "**Updated components:**"
               echo ""
-              # One bullet per component
               IFS=',' read -ra parts <<< "$CHANGED_COMPONENTS"
               for part in "${parts[@]}"; do
                 echo "- $(echo "$part" | xargs)"
@@ -202,12 +201,8 @@ jobs:
           sed -n '1,/^## SD Card Layout$/{ /^## SD Card Layout$/!p }' \
               "$CHANGELOG" >> "$RELEASE_BODY"
 
-          # Trim trailing whitespace for a clean ending
+          # Trim trailing whitespace
           perl -i -0pe 's/[\n\r\s]*$//; print "\n"' "$RELEASE_BODY"
-
-          echo "Release body preview:"
-          echo "─────────────────────"
-          cat "$RELEASE_BODY"
 
       # ── 8. Package ─────────────────────────────────────────────────────────
       # zip . (dot, not *) includes hidden directories like switch/.overlays
