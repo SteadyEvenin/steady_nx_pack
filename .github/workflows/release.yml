@@ -191,7 +191,8 @@ jobs:
               echo ""
             fi
             echo "**Built:** $(date -u +'%Y-%m-%d %H:%M UTC')"
-            echo "**Commit:** [\`$(echo '${{ github.sha }}' | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})"
+            SHORT_SHA="${{ github.sha }}"
+            echo "**Commit:** [\`${SHORT_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})"
             echo ""
             echo "---"
             echo ""
@@ -201,8 +202,8 @@ jobs:
           sed -n '1,/^## SD Card Layout$/{ /^## SD Card Layout$/!p }' \
               "$CHANGELOG" >> "$RELEASE_BODY"
 
-          # Trim trailing whitespace
-          perl -i -0pe 's/[\n\r\s]*$//; print "\n"' "$RELEASE_BODY"
+          # Trim trailing blank lines
+          sed -i -e '/./,$!d' -e 's/[[:space:]]*$//' "$RELEASE_BODY"
 
       # ── 8. Package ─────────────────────────────────────────────────────────
       # zip . (dot, not *) includes hidden directories like switch/.overlays
@@ -253,12 +254,13 @@ jobs:
           BODY="${{ github.workspace }}/release_body.md"
 
           {
+            SHORT_SHA="${{ github.sha }}"
             echo "## CFW Pack Build — \`${TAG:-unknown}\`"
             echo ""
             echo "| Item | Value |"
             echo "|------|-------|"
             echo "| Triggered by | \`${{ github.event_name }}\` |"
-            echo "| Commit | [\`$(echo '${{ github.sha }}' | cut -c1-7)\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |"
+            echo "| Commit | [\`${SHORT_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) |"
             echo "| Run | [#${{ github.run_number }}.${{ github.run_attempt }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
             if [[ -f "$ZIP" ]]; then
               echo "| Package size | \`$(du -sh "$ZIP" | cut -f1)\` |"
