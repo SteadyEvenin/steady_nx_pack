@@ -313,7 +313,9 @@ jobs:
               echo "| Component | Repo | Previous | New |"
               echo "|-----------|------|----------|-----|"
               python3 -c "
-          import json
+          import json, os
+          if not os.path.exists('changed_tags.json'):
+              exit(0)
           data = json.load(open('changed_tags.json'))
           for name, info in data.items():
               repo = info['repo']
