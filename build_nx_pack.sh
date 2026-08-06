@@ -98,7 +98,7 @@ for l in links:
 "
 }
 
-# Downloads a file (skips if already cached)
+# Downloads a file (skips if already cached and >512 bytes)
 download_file() {
     local url="$1" dest="$2"
     if [[ -f "$dest" ]] && [[ $(wc -c < "$dest") -gt 512 ]]; then
@@ -111,6 +111,7 @@ download_file() {
               -H "User-Agent: build_nx_pack/1.0" \
               "$tag_safe_url" -o "$dest"; then
         warn "Download failed: $url"
+        rm -f "$dest"
         return 1
     fi
     local size
@@ -118,6 +119,7 @@ download_file() {
     if (( size < 512 )); then
         warn "Suspiciously small file ($size bytes) — may be an error page: $url"
         cat "$dest" >> "$LOG_FILE"
+        rm -f "$dest"
         return 1
     fi
     log "  $(basename "$dest") (${size} bytes)"
@@ -140,8 +142,18 @@ process() {
         filename="${repo//\//_}_${branch}.zip"
         version="latest (${branch} branch)"
     else
-        local tag
-        tag=$(get_latest_tag "$repo")
+        local tag assets
+        # Accept pre-resolved tag/assets to avoid redundant API calls when the
+        # caller already fetched them (Hekate, DBI, Ultrahand).
+        if [[ -n "${PROCESS_TAG_OVERRIDE:-}" ]]; then
+            tag="$PROCESS_TAG_OVERRIDE"
+            assets="${PROCESS_ASSETS_OVERRIDE:-}"
+            PROCESS_TAG_OVERRIDE=""
+            PROCESS_ASSETS_OVERRIDE=""
+        else
+            tag=$(get_latest_tag "$repo")
+            assets=$(get_release_assets "$repo" "$tag")
+        fi
         if [[ -z "$tag" ]]; then
             warn "$label: could not resolve latest tag for $repo"
             FAILED+=("$label")
@@ -150,9 +162,6 @@ process() {
         fi
         version="$tag"
         log "  tag: $tag"
-
-        local assets
-        assets=$(get_release_assets "$repo" "$tag")
 
         url=$(echo "$assets" | grep -i "$pattern" | head -1 || true)
         if [[ -z "$url" ]]; then
@@ -234,41 +243,43 @@ log "== Downloading components =="
 process "Atmosphère" "atmosphere-nx/atmosphere" "atmosphere-" "unzip_root"
 
 # 2. Hekate
+# Resolve tag once — reused by process() and the .bin placement block below.
+HEKATE_TAG=$(get_latest_tag "ctcaer/hekate")
+HEKATE_ASSETS=$(get_release_assets "ctcaer/hekate" "$HEKATE_TAG")
+PROCESS_TAG_OVERRIDE="$HEKATE_TAG"
+PROCESS_ASSETS_OVERRIDE="$HEKATE_ASSETS"
 process "Hekate" "ctcaer/hekate" "hekate_ctcaer.*_Nyx_" "unzip_root"
 
 {
-    tag=$(get_latest_tag "ctcaer/hekate")
-    if [[ -n "$tag" ]]; then
-        assets=$(get_release_assets "ctcaer/hekate" "$tag")
-        bin_url=$(echo "$assets" | grep -v "ram8GB" | grep '\.bin$' | head -1 || true)
-        if [[ -n "$bin_url" ]]; then
-            bin_file="$DL_DIR/$(basename "$bin_url")"
-            download_file "$bin_url" "$bin_file"
-            mkdir -p "$OUTPUT_DIR/bootloader/payloads" "$OUTPUT_DIR/atmosphere"
-            cp "$bin_file" "$OUTPUT_DIR/hekate.bin"
-            cp "$bin_file" "$OUTPUT_DIR/payload.bin"
-            cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
-            cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
-            log "  Hekate payload mapped: hekate.bin, payload.bin, atmosphere/reboot_to_payload.bin, bootloader/payloads/hekate.bin"
-        fi
+    bin_url=$(echo "$HEKATE_ASSETS" | grep -v "ram8GB" | grep '\.bin$' | head -1 || true)
+    if [[ -n "$bin_url" ]]; then
+        bin_file="$DL_DIR/$(basename "$bin_url")"
+        download_file "$bin_url" "$bin_file"
+        mkdir -p "$OUTPUT_DIR/bootloader/payloads" "$OUTPUT_DIR/atmosphere"
+        cp "$bin_file" "$OUTPUT_DIR/hekate.bin"
+        cp "$bin_file" "$OUTPUT_DIR/payload.bin"
+        cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
+        cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
+        log "  Hekate payload mapped: hekate.bin, payload.bin, atmosphere/reboot_to_payload.bin, bootloader/payloads/hekate.bin"
     fi
 } 2>>"$LOG_FILE" || warn "Could not place Hekate .bin payload"
 
 # 3. DBI
+# Resolve tag once — reused by process() and the dbi.config placement block below.
+DBI_TAG=$(get_latest_tag "rashevskyv/dbi")
+DBI_ASSETS=$(get_release_assets "rashevskyv/dbi" "$DBI_TAG")
+PROCESS_TAG_OVERRIDE="$DBI_TAG"
+PROCESS_ASSETS_OVERRIDE="$DBI_ASSETS"
 process "DBI" "rashevskyv/dbi" "DBI.nro" "copy_to" "switch/DBI"
 
 {
-    tag=$(get_latest_tag "rashevskyv/dbi")
-    if [[ -n "$tag" ]]; then
-        assets=$(get_release_assets "rashevskyv/dbi" "$tag")
-        cfg_url=$(echo "$assets" | grep -i "dbi.config" | head -1 || true)
-        if [[ -n "$cfg_url" ]]; then
-            cfg_file="$DL_DIR/dbi.config"
-            download_file "$cfg_url" "$cfg_file"
-            mkdir -p "$OUTPUT_DIR/switch/DBI"
-            cp "$cfg_file" "$OUTPUT_DIR/switch/DBI/dbi.config"
-            log "  dbi.config → switch/DBI/dbi.config"
-        fi
+    cfg_url=$(echo "$DBI_ASSETS" | grep -i "dbi.config" | head -1 || true)
+    if [[ -n "$cfg_url" ]]; then
+        cfg_file="$DL_DIR/dbi.config"
+        download_file "$cfg_url" "$cfg_file"
+        mkdir -p "$OUTPUT_DIR/switch/DBI"
+        cp "$cfg_file" "$OUTPUT_DIR/switch/DBI/dbi.config"
+        log "  dbi.config → switch/DBI/dbi.config"
     fi
 } 2>>"$LOG_FILE" || warn "Could not place dbi.config"
 
@@ -315,11 +326,11 @@ process "Memory-Kit" "ppkantorski/Memory-Kit" "Memory.Kit.zip" "unzip_root"
 
 log ""
 log "[ Memory-Kit mesosphere kernel ] repo tree → atmosphere/"
-_MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
-_MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
+MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
+MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
 mkdir -p "$OUTPUT_DIR/atmosphere"
-if download_file "$_MESO_URL" "$_MESO_DEST" 2>>"$LOG_FILE"; then
-    cp "$_MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
+if download_file "$MESO_URL" "$MESO_DEST" 2>>"$LOG_FILE"; then
+    cp "$MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
     log "  mesosphere_1.85MB_1.11.bin → atmosphere/"
     CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|OK")
     (( DONE++ )) || true
@@ -333,54 +344,56 @@ fi
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
 # 17. Ultrahand-Overlay
+# Resolve tag once — reused by process() and the companion asset block below.
 # PROCESS_FILENAME_OVERRIDE avoids any future sdout.zip collision in _downloads/.
+UH_TAG=$(get_latest_tag "ppkantorski/Ultrahand-Overlay")
+UH_ASSETS=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$UH_TAG")
 PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
+PROCESS_TAG_OVERRIDE="$UH_TAG"
+PROCESS_ASSETS_OVERRIDE="$UH_ASSETS"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
 
 # Ultrahand companion assets: ovlmenu.ovl + lang.zip
 # Fetched in the main shell (not a subshell) so CHANGELOG_ENTRIES is updated correctly.
+# UH_TAG and UH_ASSETS resolved above — no additional API calls needed.
 log ""
 log "[ Ultrahand companion assets ] ovlmenu.ovl + lang.zip"
 
-_uh_tag=$(get_latest_tag "ppkantorski/Ultrahand-Overlay" 2>>"$LOG_FILE" || true)
-
-if [[ -z "$_uh_tag" ]]; then
+if [[ -z "$UH_TAG" ]]; then
     warn "Ultrahand: could not resolve tag for companion assets"
     FAILED+=("Ultrahand ovlmenu.ovl")
     CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|unknown|n/a|FAILED – could not resolve tag")
 else
-    _uh_assets=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$_uh_tag" 2>>"$LOG_FILE" || true)
-
-    _ovl_url=$(echo "$_uh_assets" | grep "ovlmenu\.ovl" | head -1 || true)
-    if [[ -n "$_ovl_url" ]]; then
-        if download_file "$_ovl_url" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
+    OVL_URL=$(echo "$UH_ASSETS" | grep "ovlmenu\.ovl" | head -1 || true)
+    if [[ -n "$OVL_URL" ]]; then
+        if download_file "$OVL_URL" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/switch/.overlays"
             cp "$DL_DIR/ovlmenu.ovl" "$OUTPUT_DIR/switch/.overlays/ovlmenu.ovl"
             log "  ovlmenu.ovl → switch/.overlays/ovlmenu.ovl"
-            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|OK")
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|ovlmenu.ovl|OK")
             (( DONE++ )) || true
         else
             warn "Ultrahand: failed to download ovlmenu.ovl"
             FAILED+=("Ultrahand ovlmenu.ovl")
-            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|FAILED – download error")
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|ovlmenu.ovl|FAILED – download error")
         fi
     else
-        warn "Ultrahand: ovlmenu.ovl not found in release assets for $_uh_tag"
+        warn "Ultrahand: ovlmenu.ovl not found in release assets for $UH_TAG"
         FAILED+=("Ultrahand ovlmenu.ovl")
-        CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|n/a|FAILED – asset not matched")
+        CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|n/a|FAILED – asset not matched")
     fi
 
-    _lang_url=$(echo "$_uh_assets" | grep "lang\.zip" | head -1 || true)
-    if [[ -n "$_lang_url" ]]; then
-        if download_file "$_lang_url" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
+    LANG_URL=$(echo "$UH_ASSETS" | grep "lang\.zip" | head -1 || true)
+    if [[ -n "$LANG_URL" ]]; then
+        if download_file "$LANG_URL" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/config/ultrahand/lang"
             unzip -oq "$DL_DIR/ultrahand_lang.zip" -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
             log "  lang.zip → config/ultrahand/lang/"
-            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|OK")
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$UH_TAG|lang.zip|OK")
             (( DONE++ )) || true
         else
             warn "Ultrahand: failed to download lang.zip (non-fatal)"
-            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|FAILED – download error")
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$UH_TAG|lang.zip|FAILED – download error")
         fi
     else
         log "  lang.zip not present in this release — skipping"
@@ -470,17 +483,17 @@ EOF
 log "bootloader/hekate_ipl.ini written."
 
 log "fetching emummc.bmp from repo assets..."
-_REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
-_BMP_URL="https://raw.githubusercontent.com/${_REPO_SLUG}/main/assets/emummc.bmp"
+REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
+BMP_URL="https://raw.githubusercontent.com/${REPO_SLUG}/main/assets/emummc.bmp"
 mkdir -p "$OUTPUT_DIR/bootloader/res"
 if curl -sL --max-time 30 --retry 3 \
         -H "User-Agent: build_nx_pack/1.0" \
         ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-        "$_BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
+        "$BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
    && [[ $(wc -c < "$OUTPUT_DIR/bootloader/res/emummc.bmp") -gt 512 ]]; then
     log "bootloader/res/emummc.bmp placed."
 else
-    warn "Could not download emummc.bmp from $_BMP_URL — placeholder omitted."
+    warn "Could not download emummc.bmp from $BMP_URL — placeholder omitted."
     rm -f "$OUTPUT_DIR/bootloader/res/emummc.bmp"
 fi
 
