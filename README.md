@@ -4,6 +4,7 @@
 A shell script and GitHub Actions pipeline that pulls the latest release of each listed component from GitHub, assembles them into a bootable Nintendo Switch CFW SD card layout, and publishes the result as a downloadable zip.
 
 This is a personal build, not a recommendation. Component selection reflects one specific setup. 
+
 Read the source before using anything to your console.
 
 ## How it works
