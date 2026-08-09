@@ -60,7 +60,7 @@ HOC-Toolkit is intentionally excluded. The `hoc.kip` referenced in `hekate_ipl.i
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
 | sphaira | [NaGaa95/sphaira](https://github.com/NaGaa95/sphaira) | Homebrew menu replacement |
 | NXThemesInstaller | [exelix11/SwitchThemeInjector](https://github.com/exelix11/SwitchThemeInjector) | Theme installer homebrew |
-| sys-con | [o0Zz/sys-con](https://github.com/o0Zz/sys-con) | Third-party controller support via USB/Bluetooth |
+| sys-con | [o0Zz/sys-con](https://github.com/o0Zz/sys-con) | Third-party controller support via USB |
 | Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | Key dumping payload, placed at `bootloader/payloads/` |
 
 ## Generated configuration
