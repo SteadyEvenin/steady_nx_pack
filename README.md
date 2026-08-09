@@ -3,9 +3,7 @@
 
 A shell script and GitHub Actions pipeline that pulls the latest release of each listed component from GitHub, assembles them into a bootable Nintendo Switch CFW SD card layout, and publishes the result as a downloadable zip.
 
-This is a personal build, not a recommendation. Component selection reflects one specific setup. 
-
-Read the source before using anything to your console.
+This is a personal build, not a recommendation. Component selection reflects one specific setup. Read the source before flashing anything to your console.
 
 ## How it works
 
@@ -14,7 +12,7 @@ Read the source before using anything to your console.
 1. Resolves the latest release tag via the GitHub API.
 2. Matches a release asset by filename pattern.
 3. Downloads it to `_downloads/`. Filenames that collide across repos (e.g. `sdout.zip`) are renamed per-call via an override so neither is silently dropped.
-4. Places the asset using one of four modes: extract zip to SD root, extract to a subfolder, extract a specific subfolder from inside a zip, or copy a single file to a fixed destination. Extraction is `unzip -o` directly into the output directory. There is no merge or staging step.
+4. Places the asset using one of four modes: extract zip to SD root, extract to a subfolder, extract a specific subfolder from inside a zip, or copy a single file to a fixed destination. Extraction is `unzip -o` directly into the output directory.
 5. Appends a result record to an in-memory list written as `CHANGELOG.md` and `CHANGELOG.txt` at the end of the run.
 
 Three components require steps outside the standard `process()` flow:
@@ -25,10 +23,13 @@ Three components require steps outside the standard `process()` flow:
 
 After all components are placed, the script writes:
 
-- `exosphere.ini` with PRODINFO blanking enabled.
-- `bootloader/hekate_ipl.ini` with a single `CFW (EMUMMC)` boot entry. The `kernel=` line references the mesosphere binary above. The `kip1=` line references `atmosphere/kips/hoc.kip`, which is shipped by Horizon-OC.
+- `exosphere.ini` at the SD root with PRODINFO blanking enabled.
+- `bootloader/hekate_ipl.ini` with a single `CFW (EMUMMC)` boot entry. The `kernel=` line references the mesosphere binary above. The `kip1=` line references `atmosphere/kips/hoc.kip`, shipped by Horizon-OC.
+- `atmosphere/config/system_settings.ini` with the settings listed below.
 
 The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/reboot_to_payload.bin`, and `bootloader/payloads/hekate.bin`. Lockpick RCM is placed at `bootloader/payloads/Lockpick_RCM.bin`.
+
+HOC-Toolkit is intentionally excluded. The `hoc.kip` referenced in `hekate_ipl.ini` comes from Horizon-OC directly.
 
 ## Components
 
@@ -57,8 +58,46 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | Quick-Reboot | [eradicatinglove/Quick-Reboot](https://github.com/eradicatinglove/Quick-Reboot) | `.nro` and `.ovl` fetched as separate assets |
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
-| sphaira | [ITotalJustice/sphaira](https://github.com/ITotalJustice/sphaira) | Homebrew menu replacement |
-| Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | Key dumping payload |
+| sphaira | [NaGaa95/sphaira](https://github.com/NaGaa95/sphaira) | Homebrew menu replacement |
+| NXThemesInstaller | [exelix11/SwitchThemeInjector](https://github.com/exelix11/SwitchThemeInjector) | Theme installer homebrew |
+| sys-con | [o0Zz/sys-con](https://github.com/o0Zz/sys-con) | Third-party controller support via USB/Bluetooth |
+| Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | Key dumping payload, placed at `bootloader/payloads/` |
+
+## Generated configuration
+
+### `atmosphere/config/system_settings.ini`
+
+| Section | Key | Value | Effect |
+|---|---|---|---|
+| `[usb]` | `usb30_force_enabled` | `1` | Forces USB 3.0 superspeed for homebrew transfers |
+| `[atmosphere]` | `dmnt_cheats_enabled_by_default` | `0` | Cheats off by default on game launch |
+| `[atmosphere]` | `dmnt_always_save_cheat_toggles` | `1` | Always saves cheat toggle state between launches |
+| `[atmosphere]` | `enable_dns_mitm` | `1` | Enables Atmosphere DNS MITM (required by DNS-MITM_Manager) |
+| `[atmosphere]` | `add_defaults_to_dns_hosts` | `1` | Applies default Nintendo domain redirections alongside hosts file |
+| `[atmosphere]` | `enable_external_bluetooth_db` | `1` | Stores Bluetooth pairing database on SD card, shared across sysmmc/emummc |
+| `[ns.notification]` | all entries | disabled / max interval | Disables Nintendo network update checks, eShop sync, and telemetry tasks |
+| `[olsc]` | `enable_olsc_communication_block` | `1` | Blocks Nintendo online save cloud sync |
+| `[olsc]` | `default_auto_download_global_setting` | `0` | Auto cloud download off |
+| `[olsc]` | `default_auto_upload_global_setting` | `0` | Auto cloud upload off |
+| `[am.gpu]` | `gpu_scheduling_enabled` | `0` | Disables GPU scheduling (stability over throughput) |
+
+All other settings in the file are present as commented-out reference entries and have no effect unless uncommented.
+
+### `bootloader/hekate_ipl.ini`
+
+Single boot entry `CFW (EMUMMC)` with:
+
+```
+kernel=atmosphere/mesosphere_1.85MB_1.11.bin
+kip1=atmosphere/kips/hoc.kip
+secmon=atmosphere/exosphere.bin
+emummcforce=1
+icon=bootloader/res/emummc.bmp
+```
+
+### `exosphere.ini`
+
+PRODINFO blanking enabled on both sysmmc and emummc (`blank_prodinfo_sysmmc=1`, `blank_prodinfo_emummc=1`). Debug mode off.
 
 ## Running locally
 
