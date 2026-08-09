@@ -29,8 +29,6 @@ After all components are placed, the script writes:
 
 The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/reboot_to_payload.bin`, and `bootloader/payloads/hekate.bin`. Lockpick RCM is placed at `bootloader/payloads/Lockpick_RCM.bin`.
 
-HOC-Toolkit is intentionally excluded. The `hoc.kip` referenced in `hekate_ipl.ini` comes from Horizon-OC directly.
-
 ## Components
 
 | Component | Repository | Notes |
