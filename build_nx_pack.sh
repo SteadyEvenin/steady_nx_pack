@@ -12,13 +12,15 @@
 #   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
 #   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
 #   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
-#   • Status-Monitor-Overlay • sphaira          • Lockpick_RCMaster
+#   • Status-Monitor-Overlay • sphaira (NaGaa95) • NXThemesInstaller
+#   • sys-con            • Lockpick_RCMaster
 #
 #  Generated config files:
 #   • exosphere.ini              (atmosphere/ — PRODINFO blanking)
 #   • bootloader/hekate_ipl.ini  (Hekate boot menu — CFW EMUMMC entry)
 #     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
 #     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
+#   • atmosphere/config/system_settings.ini  (Atmosphere system settings)
 #
 #  ⚠  HOC-Toolkit (ppkantorski) is intentionally NOT included.
 #     hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
@@ -98,7 +100,7 @@ for l in links:
 "
 }
 
-# Downloads a file (skips if already cached and >512 bytes)
+# Downloads a file (skips if already cached)
 download_file() {
     local url="$1" dest="$2"
     if [[ -f "$dest" ]] && [[ $(wc -c < "$dest") -gt 512 ]]; then
@@ -111,7 +113,6 @@ download_file() {
               -H "User-Agent: build_nx_pack/1.0" \
               "$tag_safe_url" -o "$dest"; then
         warn "Download failed: $url"
-        rm -f "$dest"
         return 1
     fi
     local size
@@ -119,7 +120,6 @@ download_file() {
     if (( size < 512 )); then
         warn "Suspiciously small file ($size bytes) — may be an error page: $url"
         cat "$dest" >> "$LOG_FILE"
-        rm -f "$dest"
         return 1
     fi
     log "  $(basename "$dest") (${size} bytes)"
@@ -142,18 +142,8 @@ process() {
         filename="${repo//\//_}_${branch}.zip"
         version="latest (${branch} branch)"
     else
-        local tag assets
-        # Accept pre-resolved tag/assets to avoid redundant API calls when the
-        # caller already fetched them (Hekate, DBI, Ultrahand).
-        if [[ -n "${PROCESS_TAG_OVERRIDE:-}" ]]; then
-            tag="$PROCESS_TAG_OVERRIDE"
-            assets="${PROCESS_ASSETS_OVERRIDE:-}"
-            PROCESS_TAG_OVERRIDE=""
-            PROCESS_ASSETS_OVERRIDE=""
-        else
-            tag=$(get_latest_tag "$repo")
-            assets=$(get_release_assets "$repo" "$tag")
-        fi
+        local tag
+        tag=$(get_latest_tag "$repo")
         if [[ -z "$tag" ]]; then
             warn "$label: could not resolve latest tag for $repo"
             FAILED+=("$label")
@@ -162,6 +152,9 @@ process() {
         fi
         version="$tag"
         log "  tag: $tag"
+
+        local assets
+        assets=$(get_release_assets "$repo" "$tag")
 
         url=$(echo "$assets" | grep -i "$pattern" | head -1 || true)
         if [[ -z "$url" ]]; then
@@ -243,43 +236,41 @@ log "== Downloading components =="
 process "Atmosphère" "atmosphere-nx/atmosphere" "atmosphere-" "unzip_root"
 
 # 2. Hekate
-# Resolve tag once — reused by process() and the .bin placement block below.
-HEKATE_TAG=$(get_latest_tag "ctcaer/hekate")
-HEKATE_ASSETS=$(get_release_assets "ctcaer/hekate" "$HEKATE_TAG")
-PROCESS_TAG_OVERRIDE="$HEKATE_TAG"
-PROCESS_ASSETS_OVERRIDE="$HEKATE_ASSETS"
 process "Hekate" "ctcaer/hekate" "hekate_ctcaer.*_Nyx_" "unzip_root"
 
 {
-    bin_url=$(echo "$HEKATE_ASSETS" | grep -v "ram8GB" | grep '\.bin$' | head -1 || true)
-    if [[ -n "$bin_url" ]]; then
-        bin_file="$DL_DIR/$(basename "$bin_url")"
-        download_file "$bin_url" "$bin_file"
-        mkdir -p "$OUTPUT_DIR/bootloader/payloads" "$OUTPUT_DIR/atmosphere"
-        cp "$bin_file" "$OUTPUT_DIR/hekate.bin"
-        cp "$bin_file" "$OUTPUT_DIR/payload.bin"
-        cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
-        cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
-        log "  Hekate payload mapped: hekate.bin, payload.bin, atmosphere/reboot_to_payload.bin, bootloader/payloads/hekate.bin"
+    tag=$(get_latest_tag "ctcaer/hekate")
+    if [[ -n "$tag" ]]; then
+        assets=$(get_release_assets "ctcaer/hekate" "$tag")
+        bin_url=$(echo "$assets" | grep -v "ram8GB" | grep '\.bin$' | head -1 || true)
+        if [[ -n "$bin_url" ]]; then
+            bin_file="$DL_DIR/$(basename "$bin_url")"
+            download_file "$bin_url" "$bin_file"
+            mkdir -p "$OUTPUT_DIR/bootloader/payloads" "$OUTPUT_DIR/atmosphere"
+            cp "$bin_file" "$OUTPUT_DIR/hekate.bin"
+            cp "$bin_file" "$OUTPUT_DIR/payload.bin"
+            cp "$bin_file" "$OUTPUT_DIR/atmosphere/reboot_to_payload.bin"
+            cp "$bin_file" "$OUTPUT_DIR/bootloader/payloads/hekate.bin"
+            log "  Hekate payload mapped: hekate.bin, payload.bin, atmosphere/reboot_to_payload.bin, bootloader/payloads/hekate.bin"
+        fi
     fi
 } 2>>"$LOG_FILE" || warn "Could not place Hekate .bin payload"
 
 # 3. DBI
-# Resolve tag once — reused by process() and the dbi.config placement block below.
-DBI_TAG=$(get_latest_tag "rashevskyv/dbi")
-DBI_ASSETS=$(get_release_assets "rashevskyv/dbi" "$DBI_TAG")
-PROCESS_TAG_OVERRIDE="$DBI_TAG"
-PROCESS_ASSETS_OVERRIDE="$DBI_ASSETS"
 process "DBI" "rashevskyv/dbi" "DBI.nro" "copy_to" "switch/DBI"
 
 {
-    cfg_url=$(echo "$DBI_ASSETS" | grep -i "dbi.config" | head -1 || true)
-    if [[ -n "$cfg_url" ]]; then
-        cfg_file="$DL_DIR/dbi.config"
-        download_file "$cfg_url" "$cfg_file"
-        mkdir -p "$OUTPUT_DIR/switch/DBI"
-        cp "$cfg_file" "$OUTPUT_DIR/switch/DBI/dbi.config"
-        log "  dbi.config → switch/DBI/dbi.config"
+    tag=$(get_latest_tag "rashevskyv/dbi")
+    if [[ -n "$tag" ]]; then
+        assets=$(get_release_assets "rashevskyv/dbi" "$tag")
+        cfg_url=$(echo "$assets" | grep -i "dbi.config" | head -1 || true)
+        if [[ -n "$cfg_url" ]]; then
+            cfg_file="$DL_DIR/dbi.config"
+            download_file "$cfg_url" "$cfg_file"
+            mkdir -p "$OUTPUT_DIR/switch/DBI"
+            cp "$cfg_file" "$OUTPUT_DIR/switch/DBI/dbi.config"
+            log "  dbi.config → switch/DBI/dbi.config"
+        fi
     fi
 } 2>>"$LOG_FILE" || warn "Could not place dbi.config"
 
@@ -326,11 +317,11 @@ process "Memory-Kit" "ppkantorski/Memory-Kit" "Memory.Kit.zip" "unzip_root"
 
 log ""
 log "[ Memory-Kit mesosphere kernel ] repo tree → atmosphere/"
-MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
-MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
+_MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
+_MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
 mkdir -p "$OUTPUT_DIR/atmosphere"
-if download_file "$MESO_URL" "$MESO_DEST" 2>>"$LOG_FILE"; then
-    cp "$MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
+if download_file "$_MESO_URL" "$_MESO_DEST" 2>>"$LOG_FILE"; then
+    cp "$_MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
     log "  mesosphere_1.85MB_1.11.bin → atmosphere/"
     CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|OK")
     (( DONE++ )) || true
@@ -344,56 +335,54 @@ fi
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
 # 17. Ultrahand-Overlay
-# Resolve tag once — reused by process() and the companion asset block below.
 # PROCESS_FILENAME_OVERRIDE avoids any future sdout.zip collision in _downloads/.
-UH_TAG=$(get_latest_tag "ppkantorski/Ultrahand-Overlay")
-UH_ASSETS=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$UH_TAG")
 PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
-PROCESS_TAG_OVERRIDE="$UH_TAG"
-PROCESS_ASSETS_OVERRIDE="$UH_ASSETS"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
 
 # Ultrahand companion assets: ovlmenu.ovl + lang.zip
 # Fetched in the main shell (not a subshell) so CHANGELOG_ENTRIES is updated correctly.
-# UH_TAG and UH_ASSETS resolved above — no additional API calls needed.
 log ""
 log "[ Ultrahand companion assets ] ovlmenu.ovl + lang.zip"
 
-if [[ -z "$UH_TAG" ]]; then
+_uh_tag=$(get_latest_tag "ppkantorski/Ultrahand-Overlay" 2>>"$LOG_FILE" || true)
+
+if [[ -z "$_uh_tag" ]]; then
     warn "Ultrahand: could not resolve tag for companion assets"
     FAILED+=("Ultrahand ovlmenu.ovl")
     CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|unknown|n/a|FAILED – could not resolve tag")
 else
-    OVL_URL=$(echo "$UH_ASSETS" | grep "ovlmenu\.ovl" | head -1 || true)
-    if [[ -n "$OVL_URL" ]]; then
-        if download_file "$OVL_URL" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
+    _uh_assets=$(get_release_assets "ppkantorski/Ultrahand-Overlay" "$_uh_tag" 2>>"$LOG_FILE" || true)
+
+    _ovl_url=$(echo "$_uh_assets" | grep "ovlmenu\.ovl" | head -1 || true)
+    if [[ -n "$_ovl_url" ]]; then
+        if download_file "$_ovl_url" "$DL_DIR/ovlmenu.ovl" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/switch/.overlays"
             cp "$DL_DIR/ovlmenu.ovl" "$OUTPUT_DIR/switch/.overlays/ovlmenu.ovl"
             log "  ovlmenu.ovl → switch/.overlays/ovlmenu.ovl"
-            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|ovlmenu.ovl|OK")
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|OK")
             (( DONE++ )) || true
         else
             warn "Ultrahand: failed to download ovlmenu.ovl"
             FAILED+=("Ultrahand ovlmenu.ovl")
-            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|ovlmenu.ovl|FAILED – download error")
+            CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|ovlmenu.ovl|FAILED – download error")
         fi
     else
-        warn "Ultrahand: ovlmenu.ovl not found in release assets for $UH_TAG"
+        warn "Ultrahand: ovlmenu.ovl not found in release assets for $_uh_tag"
         FAILED+=("Ultrahand ovlmenu.ovl")
-        CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$UH_TAG|n/a|FAILED – asset not matched")
+        CHANGELOG_ENTRIES+=("Ultrahand ovlmenu.ovl|ppkantorski/Ultrahand-Overlay|$_uh_tag|n/a|FAILED – asset not matched")
     fi
 
-    LANG_URL=$(echo "$UH_ASSETS" | grep "lang\.zip" | head -1 || true)
-    if [[ -n "$LANG_URL" ]]; then
-        if download_file "$LANG_URL" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
+    _lang_url=$(echo "$_uh_assets" | grep "lang\.zip" | head -1 || true)
+    if [[ -n "$_lang_url" ]]; then
+        if download_file "$_lang_url" "$DL_DIR/ultrahand_lang.zip" 2>>"$LOG_FILE"; then
             mkdir -p "$OUTPUT_DIR/config/ultrahand/lang"
             unzip -oq "$DL_DIR/ultrahand_lang.zip" -d "$OUTPUT_DIR/config/ultrahand/lang" 2>>"$LOG_FILE"
             log "  lang.zip → config/ultrahand/lang/"
-            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$UH_TAG|lang.zip|OK")
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|OK")
             (( DONE++ )) || true
         else
             warn "Ultrahand: failed to download lang.zip (non-fatal)"
-            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$UH_TAG|lang.zip|FAILED – download error")
+            CHANGELOG_ENTRIES+=("Ultrahand lang.zip|ppkantorski/Ultrahand-Overlay|$_uh_tag|lang.zip|FAILED – download error")
         fi
     else
         log "  lang.zip not present in this release — skipping"
@@ -426,11 +415,21 @@ process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 # 24. Status-Monitor-Overlay
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
 
-# 25. sphaira
-# Zip extracts to switch/sphaira/sphaira.nro (homebrew menu replacement).
-process "sphaira" "ITotalJustice/sphaira" "sphaira.zip" "unzip_root"
+# 25. sphaira (NaGaa95 fork)
+# Actively maintained fork of the sphaira homebrew menu replacement.
+# Ships a standalone sphaira.nro placed at switch/sphaira/sphaira.nro.
+process "sphaira" "NaGaa95/sphaira" "sphaira.nro" "copy_to" "switch/sphaira"
 
-# 26. Lockpick_RCMaster
+# 26. NXThemesInstaller
+# Standalone homebrew .nro for installing and managing Switch home menu themes.
+process "NXThemesInstaller" "exelix11/SwitchThemeInjector" "NXThemesInstaller.nro" "copy_to" "switch"
+
+# 27. sys-con
+# Sysmodule for third-party controller support (USB/Bluetooth).
+# Zip ships full SD layout: atmosphere/contents/690000000000000D/ + switch/sys-con.nro + config/sys-con/
+process "sys-con" "o0Zz/sys-con" "sys-con-" "unzip_root"
+
+# 28. Lockpick_RCMaster
 # Standalone .bin payload — fetched directly, placed in bootloader/payloads/.
 process "Lockpick_RCMaster" "THZoria/Lockpick_RCMaster" "Lockpick_RCM.bin" "copy_to" "bootloader/payloads"
 
@@ -482,18 +481,133 @@ icon=bootloader/res/emummc.bmp
 EOF
 log "bootloader/hekate_ipl.ini written."
 
+log "writing atmosphere/config/system_settings.ini..."
+mkdir -p "$OUTPUT_DIR/atmosphere/config"
+cat << 'EOF' > "$OUTPUT_DIR/atmosphere/config/system_settings.ini"
+[eupld]
+; Disable uploading error reports to Nintendo
+; upload_enabled = u8!0x0
+
+[usb]
+; Enable USB 3.0 superspeed for homebrew
+; 0 = USB 3.0 support is system default (usually disabled), 1 = USB 3.0 support is enabled.
+usb30_force_enabled = u8!0x1
+
+[ro]
+; Control whether RO should ease its validation of NROs.
+; (note: this is normally not necessary, and ips patches can be used.)
+; ease_nro_restriction = u8!0x1
+
+[lm]
+; Control whether lm should log to the SD card.
+; Note that this setting does nothing when log manager is not enabled.
+; enable_sd_card_logging = u8!0x1
+; Control the output directory for SD card logs.
+; Note that this setting does nothing when log manager is not enabled/sd card logging is not enabled.
+; sd_card_log_output_directory = str!atmosphere/binlogs
+
+[erpt]
+; Control whether erpt reports should always be preserved, instead of automatically cleaning periodically.
+; disable_automatic_report_cleanup = u8!0x0
+
+[atmosphere]
+; Reboot from fatal automatically after some number of milliseconds.
+; If field is not present or 0, fatal will wait indefinitely for user input.
+; fatal_auto_reboot_interval = u64!0x0
+; Make the power menu's "reboot" button reboot to payload.
+; Set to "normal" for normal reboot, "rcm" for rcm reboot.
+; power_menu_reboot_function = str!payload
+; Controls whether dmnt cheats should be toggled on or off by
+; default. 1 = toggled on by default, 0 = toggled off by default.
+dmnt_cheats_enabled_by_default = u8!0x0
+; Controls whether dmnt should always save cheat toggle state
+; for restoration on new game launch. 1 = always save toggles,
+; 0 = only save toggles if toggle file exists.
+dmnt_always_save_cheat_toggles = u8!0x1
+; Enable writing to BIS partitions for HBL.
+; This is probably undesirable for normal usage.
+; enable_hbl_bis_write = u8!0x0
+; Enable reading the CAL0 partition for HBL.
+; This is probably undesirable for normal usage.
+; enable_hbl_cal_read = u8!0x0
+; Controls whether fs.mitm should redirect save files
+; to directories on the sd card.
+; 0 = Do not redirect, 1 = Redirect.
+; NOTE: EXPERIMENTAL
+; If you do not know what you are doing, do not touch this yet.
+; fsmitm_redirect_saves_to_sd = u8!0x0
+; Controls whether am sees system settings "DebugModeFlag" as
+; enabled or disabled.
+; 0 = Disabled (not debug mode), 1 = Enabled (debug mode)
+; enable_am_debug_mode = u8!0x0
+; Controls whether dns.mitm is enabled
+; 0 = Disabled, 1 = Enabled
+enable_dns_mitm = u8!0x1
+; Controls whether dns.mitm uses the default redirections in addition to
+; whatever is specified in the user's hosts file.
+; 0 = Disabled (use hosts file contents), 1 = Enabled (use defaults and hosts file contents)
+add_defaults_to_dns_hosts = u8!0x1
+; Controls whether dns.mitm logs to the sd card for debugging
+; 0 = Disabled, 1 = Enabled
+; enable_dns_mitm_debug_log = u8!0x0
+; Controls whether htc is enabled
+; 0 = Disabled, 1 = Enabled
+; enable_htc = u8!0x0
+; Controls whether atmosphere's log manager is enabled
+; Note that this setting is ignored (and treated as 1) when htc is enabled.
+; 0 = Disabled, 1 = Enabled
+; enable_log_manager = u8!0x0
+; Controls whether the bluetooth pairing database is redirected to the SD card (shared across sysmmc/all emummcs)
+; NOTE: On <13.0.0, the database size was 10 instead of 20; booting pre-13.0.0 will truncate the database.
+; 0 = Disabled, 1 = Enabled
+enable_external_bluetooth_db = u8!0x1
+
+[hbloader]
+; Controls the size of the homebrew heap when running as applet.
+; If set to zero, all available applet memory is used as heap.
+; The default is zero.
+; applet_heap_size = u64!0x0
+; Controls the amount of memory to reserve when running as applet
+; for usage by other applets. This setting has no effect if
+; applet_heap_size is non-zero. The default is 0x8600000.
+; applet_heap_reservation_size = u64!0x8600000
+
+[ns.notification]
+enable_download_task_list = u8!0x0
+enable_download_ticket = u8!0x0
+enable_network_update = u8!0x0
+enable_random_wait = u8!0x0
+enable_request_on_cold_boot = u8!0x0
+enable_send_rights_usage_status_request = u8!0x0
+enable_sync_elicense_request = u8!0x0
+enable_version_list = u8!0x0
+retry_interval_min = u32!0x7FFFFFFF
+retry_interval_max = u32!0x7FFFFFFF
+version_list_waiting_limit_bias = u32!0x7FFFFFFF
+version_list_waiting_limit_min = u32!0x7FFFFFFF
+
+[olsc]
+enable_olsc_communication_block = u8!0x1
+default_auto_download_global_setting = u8!0x0
+default_auto_upload_global_setting = u8!0x0
+
+[am.gpu]
+gpu_scheduling_enabled=u8!0x0
+EOF
+log "atmosphere/config/system_settings.ini written."
+
 log "fetching emummc.bmp from repo assets..."
-REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
-BMP_URL="https://raw.githubusercontent.com/${REPO_SLUG}/main/assets/emummc.bmp"
+_REPO_SLUG="${GITHUB_REPOSITORY:-SteadyEvenin/steady_nx_pack}"
+_BMP_URL="https://raw.githubusercontent.com/${_REPO_SLUG}/main/assets/emummc.bmp"
 mkdir -p "$OUTPUT_DIR/bootloader/res"
 if curl -sL --max-time 30 --retry 3 \
         -H "User-Agent: build_nx_pack/1.0" \
         ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-        "$BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
+        "$_BMP_URL" -o "$OUTPUT_DIR/bootloader/res/emummc.bmp" \
    && [[ $(wc -c < "$OUTPUT_DIR/bootloader/res/emummc.bmp") -gt 512 ]]; then
     log "bootloader/res/emummc.bmp placed."
 else
-    warn "Could not download emummc.bmp from $BMP_URL — placeholder omitted."
+    warn "Could not download emummc.bmp from $_BMP_URL — placeholder omitted."
     rm -f "$OUTPUT_DIR/bootloader/res/emummc.bmp"
 fi
 
