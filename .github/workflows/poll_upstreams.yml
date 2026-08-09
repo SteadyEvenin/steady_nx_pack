@@ -92,8 +92,10 @@ env:
       "Quick-Reboot":            "eradicatinglove/Quick-Reboot",
       "emuiibo":                 "XorTroll/emuiibo",
       "Status-Monitor-Overlay":  "ppkantorski/Status-Monitor-Overlay",
-      "sphaira":                 "ITotalJustice/sphaira",
-      "Lockpick_RCMaster":       "THZoria/Lockpick_RCMaster"
+      "sphaira":                  "NaGaa95/sphaira",
+      "NXThemesInstaller":        "exelix11/SwitchThemeInjector",
+      "sys-con":                  "o0Zz/sys-con",
+      "Lockpick_RCMaster":        "THZoria/Lockpick_RCMaster"
     }
 
   # Repos with no GitHub Releases — tracked by latest commit SHA on master.
@@ -313,9 +315,7 @@ jobs:
               echo "| Component | Repo | Previous | New |"
               echo "|-----------|------|----------|-----|"
               python3 -c "
-          import json, os
-          if not os.path.exists('changed_tags.json'):
-              exit(0)
+          import json
           data = json.load(open('changed_tags.json'))
           for name, info in data.items():
               repo = info['repo']
