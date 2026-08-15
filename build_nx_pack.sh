@@ -418,7 +418,7 @@ process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Mo
 # 25. sphaira (NaGaa95 fork)
 # Actively maintained fork of the sphaira homebrew menu replacement.
 # Ships a standalone sphaira.nro placed at switch/sphaira/sphaira.nro.
-process "sphaira" "NaGaa95/sphaira" "sphaira.nro" "copy_to" "switch/sphaira"
+process "sphaira" "NaGaa95/sphaira" "sphaira.zip" "unzip_root" "copy_to" "switch/sphaira"
 
 # 26. NXThemesInstaller
 # Standalone homebrew .nro for installing and managing Switch home menu themes.
