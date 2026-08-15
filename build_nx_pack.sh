@@ -21,6 +21,7 @@
 #     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
 #     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
 #   • atmosphere/config/system_settings.ini  (Atmosphere system settings)
+#   • bootloader/nyx.ini (Hekate Nyx settings)
 #
 #  ⚠  HOC-Toolkit (ppkantorski) is intentionally NOT included.
 #     hoc.kip is the Horizon-OC kernel patch shipped by Horizon-OC/Horizon-OC.
@@ -480,6 +481,23 @@ emummcforce=1
 icon=bootloader/res/emummc.bmp
 EOF
 log "bootloader/hekate_ipl.ini written."
+
+log "writing bootloader/nyx.ini..."
+cat << 'EOF' > "$OUTPUT_DIR/bootloader/nyx.ini"
+[config]
+themebg=0
+themecolor=184
+entries5col=0
+timeoffset=2f074200
+timedst=1
+homescreen=0
+verification=1
+umsemmcrw=0
+jcdisable=0
+jcforceright=0
+bpmpclock=1
+EOF
+log "bootloader/nyx.ini written."
 
 log "writing atmosphere/config/system_settings.ini..."
 mkdir -p "$OUTPUT_DIR/atmosphere/config"
