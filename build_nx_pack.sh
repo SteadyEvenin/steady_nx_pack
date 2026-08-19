@@ -472,7 +472,6 @@ updater2p=1
 bootprotect=0
 
 [CFW (EMUMMC)]
-kip1patch=nosigchk
 pkg3=atmosphere/package3
 kernel=atmosphere/mesosphere_1.85MB_1.11.bin
 kip1=atmosphere/kips/hoc.kip
