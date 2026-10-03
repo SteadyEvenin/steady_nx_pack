@@ -4,11 +4,11 @@
 #  Builds a clean, ready-to-copy Nintendo Switch CFW SD card layout.
 #
 #  Components fetched (always latest release):
-#   • Atmosphère         • Hekate              • DBI
+#   • Atmosphère         • Hekate               • DBI
 #   • disable_remap_dlg  • MissionControl       • SaltyNX
 #   • theme-patches      • nx-ovlloader         • EdiZon-Overlay
 #   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch (impeeza)
-#   • ovl-sysmodules     • FPSLocker (ppkant.)  • Memory-Kit
+#   • ovl-sysmodules     • FPSLocker            • Memory-Kit
 #   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
 #   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
 #   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
@@ -308,8 +308,8 @@ process "sys-patch" "impeeza/sys-patch" "sys-patch-" "unzip_root"
 # 13. ovl-sysmodules
 process "ovl-sysmodules" "ppkantorski/ovl-sysmodules" "ovlSysmodules.ovl" "copy_to" "switch/.overlays"
 
-# 14. FPSLocker (ppkantorski fork)
-process "FPSLocker" "ppkantorski/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
+# 14. FPSLocker
+process "FPSLocker" "masagrator/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
 
 # 15. Memory-Kit
 # Release zip goes to switch/.packages/Memory Kit/. The mesosphere binary is not in
