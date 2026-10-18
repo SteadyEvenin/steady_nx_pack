@@ -46,7 +46,7 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | sys-patch | [impeeza/sys-patch](https://github.com/impeeza/sys-patch) | Applied automatically at boot |
 | ovl-sysmodules | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) | |
 | FPSLocker | [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) | |
-| Alchemist | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) | |
+| Alchemist | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) |An Ultrahand package for managing, converting, and installing mods on the Nintendo Switch|
 | Ultrahand-Overlay | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) | `ovlmenu.ovl` and `lang.zip` fetched as separate assets |
 | ReverseNX-RT | [ppkantorski/ReverseNX-RT](https://github.com/ppkantorski/ReverseNX-RT) | Requires SaltyNX (included) |
 | DNS-MITM_Manager | [sthetix/DNS-MITM_Manager](https://github.com/sthetix/DNS-MITM_Manager) | |
@@ -54,7 +54,7 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | Quick-Reboot | [eradicatinglove/Quick-Reboot](https://github.com/eradicatinglove/Quick-Reboot) | `.nro` and `.ovl` fetched as separate assets |
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
-| sphaira | [NaGaa95/sphaira](https://github.com/NaGaa95/sphaira) | Homebrew menu replacement |
+| sphaira | [NaGaa95/sphaira](https://github.com/NaGaa95/sphaira) | Homebrew menu replacement, NaGaa95's fork |
 | NXThemesInstaller | [exelix11/SwitchThemeInjector](https://github.com/exelix11/SwitchThemeInjector) | Theme installer homebrew |
 | sys-con | [o0Zz/sys-con](https://github.com/o0Zz/sys-con) | Third-party controller support via USB |
 | Lockpick RCM | [THZoria/Lockpick_RCMaster](https://github.com/THZoria/Lockpick_RCMaster) | Key dumping payload, placed at `bootloader/payloads/` |
