@@ -8,7 +8,7 @@
 #   • disable_remap_dlg  • MissionControl       • SaltyNX
 #   • theme-patches      • nx-ovlloader         • EdiZon-Overlay
 #   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch (impeeza)
-#   • ovl-sysmodules     • FPSLocker            • Memory-Kit
+#   • ovl-sysmodules     • FPSLocker
 #   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
 #   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
 #   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
@@ -18,7 +18,6 @@
 #  Generated config files:
 #   • exosphere.ini              (atmosphere/ — PRODINFO blanking)
 #   • bootloader/hekate_ipl.ini  (Hekate boot menu — CFW EMUMMC entry)
-#     └─ kernel= atmosphere/mesosphere_1.85MB_1.11.bin
 #     └─ kip1=   atmosphere/kips/hoc.kip  (shipped by Horizon-OC; see note below)
 #   • atmosphere/config/system_settings.ini  (Atmosphere system settings)
 #   • bootloader/nyx.ini (Hekate Nyx settings)
@@ -28,7 +27,6 @@
 #
 #  Repo assets copied:
 #   • bootloader/res/emummc.bmp             (from assets/ in this repo)
-#   • atmosphere/mesosphere_1.85MB_1.11.bin (from ppkantorski/Memory-Kit repo tree)
 #
 #  Requirements (all standard on ubuntu-latest):
 #    curl  unzip  python3
@@ -311,31 +309,10 @@ process "ovl-sysmodules" "ppkantorski/ovl-sysmodules" "ovlSysmodules.ovl" "copy_
 # 14. FPSLocker
 process "FPSLocker" "masagrator/FPSLocker" "FPSLocker.ovl" "copy_to" "switch/.overlays"
 
-# 15. Memory-Kit
-# Release zip goes to switch/.packages/Memory Kit/. The mesosphere binary is not in
-# the zip — fetched separately from the repo tree below.
-process "Memory-Kit" "ppkantorski/Memory-Kit" "Memory.Kit.zip" "unzip_root"
-
-log ""
-log "[ Memory-Kit mesosphere kernel ] repo tree → atmosphere/"
-_MESO_URL="https://raw.githubusercontent.com/ppkantorski/Memory-Kit/main/Memory%20Kit/data/mesosphere_1.85MB_1.11.bin"
-_MESO_DEST="$DL_DIR/mesosphere_1.85MB_1.11.bin"
-mkdir -p "$OUTPUT_DIR/atmosphere"
-if download_file "$_MESO_URL" "$_MESO_DEST" 2>>"$LOG_FILE"; then
-    cp "$_MESO_DEST" "$OUTPUT_DIR/atmosphere/mesosphere_1.85MB_1.11.bin"
-    log "  mesosphere_1.85MB_1.11.bin → atmosphere/"
-    CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|OK")
-    (( DONE++ )) || true
-else
-    warn "Failed to download mesosphere_1.85MB_1.11.bin — hekate_ipl.ini kernel= entry will be broken"
-    FAILED+=("Memory-Kit mesosphere")
-    CHANGELOG_ENTRIES+=("Memory-Kit mesosphere|ppkantorski/Memory-Kit|main|mesosphere_1.85MB_1.11.bin|FAILED – download error")
-fi
-
-# 16. Alchemist
+# 15. Alchemist
 process "Alchemist" "ppkantorski/Alchemist" "Alchemist.zip" "unzip_root"
 
-# 17. Ultrahand-Overlay
+# 16. Ultrahand-Overlay
 # PROCESS_FILENAME_OVERRIDE avoids any future sdout.zip collision in _downloads/.
 PROCESS_FILENAME_OVERRIDE="ultrahand_sdout.zip"
 process "Ultrahand-Overlay" "ppkantorski/Ultrahand-Overlay" "sdout.zip" "unzip_root"
@@ -390,47 +367,47 @@ else
     fi
 fi
 
-# 18. ReverseNX-RT
+# 17. ReverseNX-RT
 # Asset named ReverseNX-RT-ovl.ovl — renamed on copy to match overlay naming convention.
 # Requires SaltyNX (step 6).
 process "ReverseNX-RT" "ppkantorski/ReverseNX-RT" "ReverseNX-RT-ovl\.ovl" "copy_to" "switch/.overlays" "ReverseNX-RT.ovl"
 
-# 19. DNS-MITM_Manager
+# 18. DNS-MITM_Manager
 # Tesla/Ultrahand overlay for toggling Atmosphere DNS MITM hosts entries.
 process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "unzip_root"
 
-# 20. ldn_mitm
+# 19. ldn_mitm
 # LAN-play sysmodule. Zip ships full SD layout:
 #   atmosphere/contents/4200000000000010/ + switch/ldnmitm_config/ + switch/.overlays/
 process "ldn_mitm" "spacemeowx2/ldn_mitm" "ldn_mitm_" "unzip_root"
 
-# 21 & 22. Quick-Reboot (.nro app + .ovl overlay — two assets from the same release)
+# 20 & 21. Quick-Reboot (.nro app + .ovl overlay — two assets from the same release)
 process "Quick-Reboot (app)"     "eradicatinglove/Quick-Reboot" "Quick-Reboot\.nro" "copy_to" "switch"
 process "Quick-Reboot (overlay)" "eradicatinglove/Quick-Reboot" "Quick-Reboot\.ovl" "copy_to" "switch/.overlays"
 
-# 23. emuiibo
+# 22. emuiibo
 # Zip ships: atmosphere/contents/0100000000000352/ + switch/.overlays/emuiibo.ovl + lang/
 # ovlmenu.ovl and nx-ovlloader already provided by steps 17 and 8 respectively.
 process "emuiibo" "XorTroll/emuiibo" "emuiibo.zip" "unzip_root"
 
-# 24. Status-Monitor-Overlay
+# 23. Status-Monitor-Overlay
 process "Status-Monitor-Overlay" "ppkantorski/Status-Monitor-Overlay" "Status-Monitor-Overlay.ovl" "copy_to" "switch/.overlays"
 
-# 25. sphaira (NaGaa95 fork)
+# 24. sphaira (NaGaa95 fork)
 # Actively maintained fork of the sphaira homebrew menu replacement.
 # Ships a zip containing sphaira.nro, placed at switch/sphaira/sphaira.nro.
 process "sphaira" "NaGaa95/sphaira" "sphaira.zip" "unzip_root"
 
-# 26. NXThemesInstaller
+# 25. NXThemesInstaller
 # Standalone homebrew .nro for installing and managing Switch home menu themes.
 process "NXThemesInstaller" "exelix11/SwitchThemeInjector" "NXThemesInstaller.nro" "copy_to" "switch"
 
-# 27. sys-con
+# 26. sys-con
 # Sysmodule for third-party controller support (USB/Bluetooth).
 # Zip ships full SD layout: atmosphere/contents/690000000000000D/ + switch/sys-con.nro + config/sys-con/
 process "sys-con" "o0Zz/sys-con" "sys-con-" "unzip_root"
 
-# 28. Lockpick_RCMaster
+# 27. Lockpick_RCMaster
 # Standalone .bin payload — fetched directly, placed in bootloader/payloads/.
 process "Lockpick_RCMaster" "THZoria/Lockpick_RCMaster" "Lockpick_RCM.bin" "copy_to" "bootloader/payloads"
 
@@ -473,7 +450,6 @@ bootprotect=0
 
 [CFW (EMUMMC)]
 pkg3=atmosphere/package3
-kernel=atmosphere/mesosphere_1.85MB_1.11.bin
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
 emummcforce=1
