@@ -45,7 +45,7 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | QuickNTP | [ppkantorski/QuickNTP](https://github.com/ppkantorski/QuickNTP) | Fork of nedex/QuickNTP |
 | sys-patch | [impeeza/sys-patch](https://github.com/impeeza/sys-patch) | Applied automatically at boot |
 | ovl-sysmodules | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) | |
-| FPSLocker | [ppkantorski/FPSLocker](https://github.com/ppkantorski/FPSLocker) | Fork |
+| FPSLocker | [masagrator/FPSLocker](https://github.com/masagrator/FPSLocker) | |
 | Alchemist | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) | |
 | Ultrahand-Overlay | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) | `ovlmenu.ovl` and `lang.zip` fetched as separate assets |
 | ReverseNX-RT | [ppkantorski/ReverseNX-RT](https://github.com/ppkantorski/ReverseNX-RT) | Requires SaltyNX (included) |
