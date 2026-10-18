@@ -10,7 +10,7 @@
 #   • Horizon-OC         • QuickNTP (ppkant.)   • sys-patch (impeeza)
 #   • ovl-sysmodules     • FPSLocker
 #   • Alchemist          • Ultrahand-Overlay    • Ultrahand ovlmenu.ovl
-#   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager
+#   • Ultrahand lang.zip • ReverseNX-RT         • DNS-MITM_Manager (My fork)
 #   • ldn_mitm           • Quick-Reboot (.nro + .ovl) • emuiibo
 #   • Status-Monitor-Overlay • sphaira (NaGaa95) • NXThemesInstaller
 #   • sys-con            • Lockpick_RCMaster
@@ -374,7 +374,7 @@ process "ReverseNX-RT" "ppkantorski/ReverseNX-RT" "ReverseNX-RT-ovl\.ovl" "copy_
 
 # 18. DNS-MITM_Manager
 # Tesla/Ultrahand overlay for toggling Atmosphere DNS MITM hosts entries.
-process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "unzip_root"
+process "DNS-MITM_Manager" "SteadyEvenin/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "unzip_root"
 
 # 19. ldn_mitm
 # LAN-play sysmodule. Zip ships full SD layout:
