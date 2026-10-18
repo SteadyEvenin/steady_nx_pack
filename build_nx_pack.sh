@@ -379,7 +379,7 @@ process "DNS-MITM_Manager" "sthetix/DNS-MITM_Manager" "DNS-MITM_Manager.zip" "un
 # 19. ldn_mitm
 # LAN-play sysmodule. Zip ships full SD layout:
 #   atmosphere/contents/4200000000000010/ + switch/ldnmitm_config/ + switch/.overlays/
-process "ldn_mitm" "spacemeowx2/ldn_mitm" "ldn_mitm_" "unzip_root"
+process "ldn_mitm" "DefenderOfHyrule/ldn_mitm" "ldn_mitm_" "unzip_root"
 
 # 20 & 21. Quick-Reboot (.nro app + .ovl overlay — two assets from the same release)
 process "Quick-Reboot (app)"     "eradicatinglove/Quick-Reboot" "Quick-Reboot\.nro" "copy_to" "switch"
