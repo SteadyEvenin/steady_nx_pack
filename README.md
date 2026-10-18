@@ -18,7 +18,6 @@ This is a personal build, not a recommendation. Component selection reflects one
 Three components require steps outside the standard `process()` flow:
 
 - **Ultrahand-Overlay**: `ovlmenu.ovl` and `lang.zip` are separate assets in the same release and are fetched individually after the main zip.
-- **Memory-Kit**: the release zip does not include the mesosphere kernel binary. `mesosphere_1.85MB_1.11.bin` is pulled directly from the repo source tree and placed at `atmosphere/`.
 - **emummc.bmp**: pulled from this repo's own `assets/` folder and placed at `bootloader/res/`.
 
 After all components are placed, the script writes:
@@ -47,12 +46,11 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | sys-patch | [impeeza/sys-patch](https://github.com/impeeza/sys-patch) | Applied automatically at boot |
 | ovl-sysmodules | [ppkantorski/ovl-sysmodules](https://github.com/ppkantorski/ovl-sysmodules) | |
 | FPSLocker | [ppkantorski/FPSLocker](https://github.com/ppkantorski/FPSLocker) | Fork |
-| Memory-Kit | [ppkantorski/Memory-Kit](https://github.com/ppkantorski/Memory-Kit) | Mesosphere binary fetched from repo source tree, not release zip |
 | Alchemist | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) | |
 | Ultrahand-Overlay | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) | `ovlmenu.ovl` and `lang.zip` fetched as separate assets |
 | ReverseNX-RT | [ppkantorski/ReverseNX-RT](https://github.com/ppkantorski/ReverseNX-RT) | Requires SaltyNX (included) |
 | DNS-MITM_Manager | [sthetix/DNS-MITM_Manager](https://github.com/sthetix/DNS-MITM_Manager) | |
-| ldn_mitm | [spacemeowx2/ldn_mitm](https://github.com/spacemeowx2/ldn_mitm) | |
+| ldn_mitm | [DefenderOfHyrule/ldn_mitm](https://github.com/DefenderOfHyrule/ldn_mitm) | |
 | Quick-Reboot | [eradicatinglove/Quick-Reboot](https://github.com/eradicatinglove/Quick-Reboot) | `.nro` and `.ovl` fetched as separate assets |
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
 | Status-Monitor-Overlay | [ppkantorski/Status-Monitor-Overlay](https://github.com/ppkantorski/Status-Monitor-Overlay) | |
@@ -86,7 +84,6 @@ All other settings in the file are present as commented-out reference entries an
 Single boot entry `CFW (EMUMMC)` with:
 
 ```
-kernel=atmosphere/mesosphere_1.85MB_1.11.bin
 kip1=atmosphere/kips/hoc.kip
 secmon=atmosphere/exosphere.bin
 emummcforce=1
