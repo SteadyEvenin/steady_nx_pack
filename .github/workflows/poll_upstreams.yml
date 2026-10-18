@@ -86,7 +86,7 @@ env:
       "Alchemist":               "ppkantorski/Alchemist",
       "Ultrahand-Overlay":       "ppkantorski/Ultrahand-Overlay",
       "ReverseNX-RT":            "ppkantorski/ReverseNX-RT",
-      "DNS-MITM_Manager":        "sthetix/DNS-MITM_Manager",
+      "DNS-MITM_Manager":        "SteadyEvenin/DNS-MITM_Manager",
       "ldn_mitm":                "DefenderOfHyrule/ldn_mitm",
       "Quick-Reboot":            "eradicatinglove/Quick-Reboot",
       "emuiibo":                 "XorTroll/emuiibo",
