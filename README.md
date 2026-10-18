@@ -49,7 +49,7 @@ The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/
 | Alchemist | [ppkantorski/Alchemist](https://github.com/ppkantorski/Alchemist) |An Ultrahand package for managing, converting, and installing mods on the Nintendo Switch|
 | Ultrahand-Overlay | [ppkantorski/Ultrahand-Overlay](https://github.com/ppkantorski/Ultrahand-Overlay) | `ovlmenu.ovl` and `lang.zip` fetched as separate assets |
 | ReverseNX-RT | [ppkantorski/ReverseNX-RT](https://github.com/ppkantorski/ReverseNX-RT) | Requires SaltyNX (included) |
-| DNS-MITM_Manager | [sthetix/DNS-MITM_Manager](https://github.com/sthetix/DNS-MITM_Manager) | |
+| DNS-MITM_Manager | [SteadyEvenin/DNS-MITM_Manager](https://github.com/SteadyEvenin/DNS-MITM_Manager) | |
 | ldn_mitm | [DefenderOfHyrule/ldn_mitm](https://github.com/DefenderOfHyrule/ldn_mitm) | |
 | Quick-Reboot | [eradicatinglove/Quick-Reboot](https://github.com/eradicatinglove/Quick-Reboot) | `.nro` and `.ovl` fetched as separate assets |
 | emuiibo | [XorTroll/emuiibo](https://github.com/XorTroll/emuiibo) | |
