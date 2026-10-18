@@ -23,7 +23,7 @@ Three components require steps outside the standard `process()` flow:
 After all components are placed, the script writes:
 
 - `exosphere.ini` at the SD root with PRODINFO blanking enabled.
-- `bootloader/hekate_ipl.ini` with a single `CFW (EMUMMC)` boot entry. The `kernel=` line references the mesosphere binary above. The `kip1=` line references `atmosphere/kips/hoc.kip`, shipped by Horizon-OC.
+- `bootloader/hekate_ipl.ini` with a single `CFW (EMUMMC)` boot entry. The `kip1=` line references `atmosphere/kips/hoc.kip`, shipped by Horizon-OC.
 - `atmosphere/config/system_settings.ini` with the settings listed below.
 
 The Hekate payload binary is copied to `hekate.bin`, `payload.bin`, `atmosphere/reboot_to_payload.bin`, and `bootloader/payloads/hekate.bin`. Lockpick RCM is placed at `bootloader/payloads/Lockpick_RCM.bin`.
