@@ -15,14 +15,14 @@
   "Alchemist": "v1.0.6",
   "Ultrahand-Overlay": "v2.5.3",
   "ReverseNX-RT": "2.2.1+r1",
-  "DNS-MITM_Manager": "v0.2.0",
+  "DNS-MITM_Manager": "build-20261106-ea02e8d",
   "ldn_mitm": "v1.22.0",
   "Quick-Reboot": "V2.2.0",
   "emuiibo": "1.1.3",
   "Status-Monitor-Overlay": "v1.4.1+r4",
   "sphaira": "1.0.9",
   "NXThemesInstaller": "nxt-3.0.2",
-  "sys-con": "2.0.0",
+  "sys-con": "2.1.0",
   "Lockpick_RCMaster": "2.0.1",
   "theme-patches": "fc149aa"
 }
